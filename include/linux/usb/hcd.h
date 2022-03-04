@@ -81,14 +81,15 @@ struct usb_hcd {
 	/*
 	 * housekeeping
 	 */
-	struct usb_bus		self;		/* hcd is-a bus */
-	struct kref		kref;		/* reference counter */
-
+	struct usb_bus		self;		/* 继承了usb_bus的成员 */
+	struct kref		kref;		/* 引用计数*/
+	/*对于EHCI 为EHCI Host Controller*/
 	const char		*product_desc;	/* product/vendor string */
 	int			speed;		/* Speed for this roothub.
 						 * May be different from
 						 * hcd->driver->flags & HCD_MASK
 						 */
+	/*保存了驱动名称加总线编号*/
 	char			irq_descr[24];	/* driver + bus # */
 
 	struct timer_list	rh_timer;	/* drives root-hub polling */
@@ -153,7 +154,7 @@ struct usb_hcd {
 	void __iomem		*regs;		/* device memory/io */
 	resource_size_t		rsrc_start;	/* memory/io resource start */
 	resource_size_t		rsrc_len;	/* memory/io resource length */
-	unsigned		power_budget;	/* in mA, 0 = no limit */
+	unsigned		power_budget;	/* in mA, 0 = no limit *//*能够提供的电流*/
 
 	struct giveback_urb_bh  high_prio_bh;
 	struct giveback_urb_bh  low_prio_bh;
@@ -231,7 +232,7 @@ struct hc_driver {
 	/* irq handler */
 	irqreturn_t	(*irq) (struct usb_hcd *hcd);
 
-	int	flags;
+	int	flags;//标志
 #define	HCD_MEMORY	0x0001		/* HC regs use memory (else I/O) */
 #define	HCD_LOCAL_MEM	0x0002		/* HC needs local memory */
 #define	HCD_SHARED	0x0004		/* Two (or more) usb_hcds share HW */
@@ -516,8 +517,8 @@ struct usb_device;
 
 struct usb_tt {
 	struct usb_device	*hub;	/* upstream highspeed hub */
-	int			multi;	/* true means one TT per port */
-	unsigned		think_time;	/* think time in ns */
+	int			multi;	/* true means one TT per port *//*为1 表示multi tthub*/
+	unsigned		think_time;	/* think time in ns *//*TT电路在处理低速、全速时候时间缓冲*/
 	void			*hcpriv;	/* HCD private data */
 
 	/* for control/bulk error recovery (CLEAR_TT_BUFFER) */

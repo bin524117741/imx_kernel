@@ -136,6 +136,7 @@ EXPORT_SYMBOL_GPL(usb_find_alt_setting);
  * Return: A pointer to the interface that has @ifnum as interface number,
  * if found. %NULL otherwise.
  */
+/*找到某个接口号对应的usb_interface结构体*/
 struct usb_interface *usb_ifnum_to_if(const struct usb_device *dev,
 				      unsigned ifnum)
 {
@@ -416,6 +417,9 @@ static unsigned usb_bus_is_wusb(struct usb_bus *bus)
  * Return: On success, a pointer to the allocated usb device. %NULL on
  * failure.
  */
+/*
+	USB设备插入hub的构造函数 parent设备连接的hub  bus为设备总线 port1是设备连接在hub上的端口
+*/
 struct usb_device *usb_alloc_dev(struct usb_device *parent,
 				 struct usb_bus *bus, unsigned port1)
 {
@@ -426,12 +430,13 @@ struct usb_device *usb_alloc_dev(struct usb_device *parent,
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return NULL;
-
+	/*总线上多了一个usb设备 要为这个引用加1*/
 	if (!usb_get_hcd(usb_hcd)) {
 		kfree(dev);
 		return NULL;
 	}
 	/* Root hubs aren't true devices, so don't allocate HCD resources */
+	/*如果是roothub的话 不是一个设备不需要分配资源*/
 	if (usb_hcd->driver->alloc_dev && parent &&
 		!usb_hcd->driver->alloc_dev(usb_hcd, dev)) {
 		usb_put_hcd(bus_to_hcd(bus));
@@ -439,16 +444,16 @@ struct usb_device *usb_alloc_dev(struct usb_device *parent,
 		return NULL;
 	}
 
-	device_initialize(&dev->dev);
+	device_initialize(&dev->dev);//初始化usb_device 中的device结构体成员
 	dev->dev.bus = &usb_bus_type;
-	dev->dev.type = &usb_device_type;
+	dev->dev.type = &usb_device_type;//在match函数中is_usb_device判断之前先把这个赋值
 	dev->dev.groups = usb_device_groups;
-	dev->dev.dma_mask = bus->controller->dma_mask;
+	dev->dev.dma_mask = bus->controller->dma_mask;//主机控制器DMA使能赋值
 	set_dev_node(&dev->dev, dev_to_node(bus->controller));
-	dev->state = USB_STATE_ATTACHED;
+	dev->state = USB_STATE_ATTACHED;//usb设备已经链接到接口上了 是HUB检测usb设备时候的初始状态
 	dev->lpm_disable_count = 1;
 	atomic_set(&dev->urbnum, 0);
-
+	/*初始化ep0*/
 	INIT_LIST_HEAD(&dev->ep0.urb_list);
 	dev->ep0.desc.bLength = USB_DT_ENDPOINT_SIZE;
 	dev->ep0.desc.bDescriptorType = USB_DT_ENDPOINT;
@@ -464,7 +469,12 @@ struct usb_device *usb_alloc_dev(struct usb_device *parent,
 	 * as stable:  bus->busnum changes easily from modprobe order,
 	 * cardbus or pci hotplugging, and so on.
 	 */
+	
+	/*
+		unlikely(x)表示x成立的可能性不大  likely(x)表示x成立的可能很大 
+	*/
 	if (unlikely(!parent)) {
+		/*判断设备是连接到roothub上 */
 		dev->devpath[0] = '0';
 		dev->route = 0;
 
@@ -472,6 +482,7 @@ struct usb_device *usb_alloc_dev(struct usb_device *parent,
 		dev_set_name(&dev->dev, "usb%d", bus->busnum);
 		root_hub = 1;
 	} else {
+		/*判断设备没连接到roothub上 */
 		/* match any labeling on the hubs; it's one-based */
 		if (parent->devpath[0] == '0') {
 			snprintf(dev->devpath, sizeof dev->devpath,
@@ -989,14 +1000,14 @@ static int usb_bus_notify(struct notifier_block *nb, unsigned long action,
 	struct device *dev = data;
 
 	switch (action) {
-	case BUS_NOTIFY_ADD_DEVICE:
-		if (dev->type == &usb_device_type)
+	case BUS_NOTIFY_ADD_DEVICE://总线上添加设备
+		if (dev->type == &usb_device_type)//usb设备  
 			(void) usb_create_sysfs_dev_files(to_usb_device(dev));
-		else if (dev->type == &usb_if_device_type)
+		else if (dev->type == &usb_if_device_type)//usb接口  
 			usb_create_sysfs_intf_files(to_usb_interface(dev));
 		break;
 
-	case BUS_NOTIFY_DEL_DEVICE:
+	case BUS_NOTIFY_DEL_DEVICE://总线上删除设备
 		if (dev->type == &usb_device_type)
 			usb_remove_sysfs_dev_files(to_usb_device(dev));
 		else if (dev->type == &usb_if_device_type)
@@ -1051,30 +1062,30 @@ static int __init usb_init(void)
 	}
 	usb_init_pool_max();
 
-	retval = usb_debugfs_init();
+	retval = usb_debugfs_init();//创建debugfs文件节点
 	if (retval)
 		goto out;
 
-	usb_acpi_register();
-	retval = bus_register(&usb_bus_type);
+	usb_acpi_register();//高级配置电源接口
+	retval = bus_register(&usb_bus_type);//注册USB总线
 	if (retval)
 		goto bus_register_failed;
-	retval = bus_register_notifier(&usb_bus_type, &usb_bus_nb);
+	retval = bus_register_notifier(&usb_bus_type, &usb_bus_nb);//注册内核通知链，用于设备和接口注册的通知
 	if (retval)
 		goto bus_notifier_failed;
-	retval = usb_major_init();
+	retval = usb_major_init();//主设备号初始化
 	if (retval)
 		goto major_init_failed;
-	retval = usb_register(&usbfs_driver);
+	retval = usb_register(&usbfs_driver);//注册usb文件系统
 	if (retval)
 		goto driver_register_failed;
-	retval = usb_devio_init();
+	retval = usb_devio_init();//usb设备字符设备初始化 
 	if (retval)
 		goto usb_devio_init_failed;
-	retval = usb_hub_init();
+	retval = usb_hub_init();//usb hub初始化 
 	if (retval)
 		goto hub_init_failed;
-	retval = usb_register_device_driver(&usb_generic_driver, THIS_MODULE);
+	retval = usb_register_device_driver(&usb_generic_driver, THIS_MODULE);//注册USB驱动
 	if (!retval)
 		goto out;
 

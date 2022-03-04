@@ -168,7 +168,7 @@
 #define USB_DEV_STAT_LTM_ENABLED	4	/* Latency tolerance messages */
 
 /**
- * struct usb_ctrlrequest - SETUP data for a USB device control request
+ * struct usb_ctrlrequest - SETUP  USB设备控制请求的设置数据
  * @bRequestType: matches the USB bmRequestType field
  * @bRequest: matches the USB bRequest field
  * @wValue: matches the USB wValue field (le16 byte order)
@@ -184,12 +184,70 @@
  * For most devices, interfaces don't coordinate with each other, so
  * such requests may be made at any time.
  */
+/*
+这个结构体描述的request 都是在setup包发送的
+控制传输至少要有两个阶段的transaction SETUP和STATUS ，这两个阶段之间的DATA阶段是可有可无的
+usb的transaction可以包括一个Token包 一个Data包 和一个Handshake包。
+
+token包 只包括 SYNC PID 地址域 CRC 并没有DATA字段
+一般控制传输流程
+1.设置阶段：主机先发个setup token包  然后发个Data0包 如果顺利从设备返回一个ACK（Handshake包）
+2.传输阶段：主机发一个in/out token包 然后从机/主机发一个DATA1包 如果顺利主机/从机返回一个ACK（Handshake包）
+*/
 struct usb_ctrlrequest {
+	/*
+	// * 7：表示控制传输的传输阶段的方向 
+	// * 	#define USB_DIR_OUT			0		
+	// * 	#define USB_DIR_IN			0x80	
+	// * 5：6 request类型 是标准的class-specific 或者是vendor-specific
+	// *	#define USB_TYPE_MASK			(0x03 << 5)
+	// *	#define USB_TYPE_STANDARD		(0x00 << 5)
+	// *	#define USB_TYPE_CLASS			(0x01 << 5)
+	// *	#define USB_TYPE_VENDOR			(0x02 << 5)
+	// *	#define USB_TYPE_RESERVED		(0x03 << 5)
+	// * 0：4 表示这个请求针对的是设备还是接口还是端点
+	// *	#define USB_RECIP_MASK			0x1f
+	// *	#define USB_RECIP_DEVICE		0x00
+	// *	#define USB_RECIP_INTERFACE		0x01
+	// *	#define USB_RECIP_ENDPOINT		0x02
+	// *	#define USB_RECIP_OTHER			0x03
+	// *	#define USB_RECIP_PORT			0x04
+	// *	#define USB_RECIP_RPIPE		0x05 
+	*/
 	__u8 bRequestType;
+	/* 表示是哪个request
+	#define USB_REQ_GET_STATUS		0x00
+	#define USB_REQ_CLEAR_FEATURE		0x01
+	#define USB_REQ_SET_FEATURE		0x03
+	#define USB_REQ_SET_ADDRESS		0x05
+	#define USB_REQ_GET_DESCRIPTOR		0x06
+	#define USB_REQ_SET_DESCRIPTOR		0x07
+	#define USB_REQ_GET_CONFIGURATION	0x08
+	#define USB_REQ_SET_CONFIGURATION	0x09
+	#define USB_REQ_GET_INTERFACE		0x0A
+	#define USB_REQ_SET_INTERFACE		0x0B
+	#define USB_REQ_SYNCH_FRAME		0x0C
+	#define USB_REQ_SET_SEL			0x30
+	#define USB_REQ_SET_ISOCH_DELAY		0x31
+
+	#define USB_REQ_SET_ENCRYPTION		0x0D
+	#define USB_REQ_GET_ENCRYPTION		0x0E
+	#define USB_REQ_RPIPE_ABORT		0x0E
+	#define USB_REQ_SET_HANDSHAKE		0x0F
+	#define USB_REQ_RPIPE_RESET		0x0F
+	#define USB_REQ_GET_HANDSHAKE		0x10
+	#define USB_REQ_SET_CONNECTION		0x11
+	#define USB_REQ_SET_SECURITY_DATA	0x12
+	#define USB_REQ_GET_SECURITY_DATA	0x13
+	#define USB_REQ_SET_WUSB_DATA		0x14
+	#define USB_REQ_LOOPBACK_DATA_WRITE	0x15
+	#define USB_REQ_LOOPBACK_DATA_READ	0x16
+	#define USB_REQ_SET_INTERFACE_DS	0x17
+	*/
 	__u8 bRequest;
-	__le16 wValue;
-	__le16 wIndex;
-	__le16 wLength;
+	__le16 wValue;//request的参数
+	__le16 wIndex;//指明是哪个接口或者端点
+	__le16 wLength;//传输阶段的数据长度。如果为0则表示没有传输阶段，则bRequestType的方向也就无效了
 } __attribute__ ((packed));
 
 /*-------------------------------------------------------------------------*/
@@ -258,21 +316,27 @@ struct usb_descriptor_header {
 
 /* USB_DT_DEVICE: Device descriptor */
 struct usb_device_descriptor {
-	__u8  bLength;
-	__u8  bDescriptorType;
+	__u8  bLength;//长度为USB_DT_DEVICE_SIZE
+	__u8  bDescriptorType;//设备描述符类型USB_DT_DEVICE 0X01
 
-	__le16 bcdUSB;
-	__u8  bDeviceClass;
-	__u8  bDeviceSubClass;
-	__u8  bDeviceProtocol;
-	__u8  bMaxPacketSize0;
-	__le16 idVendor;
-	__le16 idProduct;
-	__le16 bcdDevice;
+	__le16 bcdUSB;//usb spec版本号
+	/*
+		定义了一种设备类型 和接口描述符差不多
+	*/
+	__u8  bDeviceClass;//类代码
+	__u8  bDeviceSubClass;//子类代码
+	__u8  bDeviceProtocol;//设备使用的协议
+	__u8  bMaxPacketSize0;//端点0可以处理的最大字节数低速只能是8 高速只能是64
+	__le16 idVendor;//厂商ID
+	__le16 idProduct;//产品ID
+	__le16 bcdDevice;//设备版本号
+	/*
+		分别对应 厂商 产品 序列号对应的字符串描述符索引
+	*/
 	__u8  iManufacturer;
 	__u8  iProduct;
 	__u8  iSerialNumber;
-	__u8  bNumConfigurations;
+	__u8  bNumConfigurations;//当前速度模式下所支持的配置数量，有的设备可以支持多种速度下的操作
 } __attribute__ ((packed));
 
 #define USB_DT_DEVICE_SIZE		18
@@ -313,17 +377,20 @@ struct usb_device_descriptor {
  * devices with a USB_DT_DEVICE_QUALIFIER have any OTHER_SPEED_CONFIG
  * descriptors.
  */
+/*
+ * USB_DT_OTHER_SPEED_CONFIG 0x07 为高速设备在低速或者全速下的配置信息
+ */
 struct usb_config_descriptor {
-	__u8  bLength;
-	__u8  bDescriptorType;
+	__u8  bLength;//长度为USB_DT_CONFIG_SIZE
+	__u8  bDescriptorType;//USB_DT_CONFIG 0X02
 
-	__le16 wTotalLength;
-	__u8  bNumInterfaces;
-	__u8  bConfigurationValue;
-	__u8  iConfiguration;
-	__u8  bmAttributes;
-	__u8  bMaxPower;
-} __attribute__ ((packed));
+	__le16 wTotalLength;//GET_DESCRIPTOR时返回的数据长度（所有描述符的统计）
+	__u8  bNumInterfaces;//配置包含的接口数目
+	__u8  bConfigurationValue;//单设备多个配置的选择 使用SET_CONFIGURATION来请求改变成哪一个配置
+	__u8  iConfiguration;//描述配置信息的字符串描述符索引值
+	__u8  bmAttributes;//USB_CONFIG_ATT_ 定义 表示配置的特点
+	__u8  bMaxPower;//设备正常运转时 从HUB那里获取的最大电流，以2ma为单位
+} __attribute__ ((packed));/*1字节对齐*/
 
 #define USB_DT_CONFIG_SIZE		9
 
@@ -351,16 +418,19 @@ struct usb_string_descriptor {
 
 /* USB_DT_INTERFACE: Interface descriptor */
 struct usb_interface_descriptor {
-	__u8  bLength;
-	__u8  bDescriptorType;
+	__u8  bLength;//长度为9
+	__u8  bDescriptorType;//描述符类型
 
-	__u8  bInterfaceNumber;
-	__u8  bAlternateSetting;
-	__u8  bNumEndpoints;
+	__u8  bInterfaceNumber;//接口索引
+	__u8  bAlternateSetting;//接口使用的是哪个可选配置
+	__u8  bNumEndpoints;//接口拥有的断点数量
+	/*
+	下面三个代表了一种USB设备 
+	*/
 	__u8  bInterfaceClass;
 	__u8  bInterfaceSubClass;
 	__u8  bInterfaceProtocol;
-	__u8  iInterface;
+	__u8  iInterface;//接口对应字符串描述符的索引值
 } __attribute__ ((packed));
 
 #define USB_DT_INTERFACE_SIZE		9
@@ -369,13 +439,13 @@ struct usb_interface_descriptor {
 
 /* USB_DT_ENDPOINT: Endpoint descriptor */
 struct usb_endpoint_descriptor {
-	__u8  bLength;
-	__u8  bDescriptorType;
+	__u8  bLength;//长度为9
+	__u8  bDescriptorType;//描述符类型
 
-	__u8  bEndpointAddress;
-	__u8  bmAttributes;
-	__le16 wMaxPacketSize;
-	__u8  bInterval;
+	__u8  bEndpointAddress;//表示是第几个bulk的输入/输出端点 0x80:in  0x00:out
+	__u8  bmAttributes;//四大传输类型 00:控制传输 01:等时传输 10:批量传输 11:中断传输
+	__le16 wMaxPacketSize;//单次可处理的最大字节数
+	__u8  bInterval;//希望被轮询的时间长度
 
 	/* NOTE:  these two are _only_ in audio endpoints. */
 	/* use USB_DT_ENDPOINT*_SIZE in bLength, not sizeof. */
@@ -470,6 +540,7 @@ static inline int usb_endpoint_dir_out(
  *
  * Returns true if the endpoint is of type bulk, otherwise it returns false.
  */
+/*判断是不是批量端点*/
 static inline int usb_endpoint_xfer_bulk(
 				const struct usb_endpoint_descriptor *epd)
 {
@@ -483,6 +554,7 @@ static inline int usb_endpoint_xfer_bulk(
  *
  * Returns true if the endpoint is of type control, otherwise it returns false.
  */
+/*判断是不是控制端点*/
 static inline int usb_endpoint_xfer_control(
 				const struct usb_endpoint_descriptor *epd)
 {
@@ -497,6 +569,7 @@ static inline int usb_endpoint_xfer_control(
  * Returns true if the endpoint is of type interrupt, otherwise it returns
  * false.
  */
+/*判断是不是中断端点*/
 static inline int usb_endpoint_xfer_int(
 				const struct usb_endpoint_descriptor *epd)
 {
@@ -511,6 +584,7 @@ static inline int usb_endpoint_xfer_int(
  * Returns true if the endpoint is of type isochronous, otherwise it returns
  * false.
  */
+/*判断是不是等时端点*/
 static inline int usb_endpoint_xfer_isoc(
 				const struct usb_endpoint_descriptor *epd)
 {

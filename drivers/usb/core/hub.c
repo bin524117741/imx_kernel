@@ -83,7 +83,7 @@ static bool old_scheme_first = 0;
 module_param(old_scheme_first, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(old_scheme_first,
 		 "start with the old device initialization scheme");
-
+/*两种策略都用 防止个别设备问题*/
 static bool use_both_schemes = 1;
 module_param(use_both_schemes, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(use_both_schemes,
@@ -102,7 +102,7 @@ EXPORT_SYMBOL_GPL(ehci_cf_port_reset_rwsem);
 
 static void hub_release(struct kref *kref);
 static int usb_reset_and_verify_device(struct usb_device *udev);
-
+/*portstatus里包含了speed*/
 static inline char *portspeed(struct usb_hub *hub, int portstatus)
 {
 	if (hub_is_superspeed(hub->hdev))
@@ -354,6 +354,7 @@ static void usb_set_lpm_parameters(struct usb_device *udev)
 }
 
 /* USB 2.0 spec Section 11.24.4.5 */
+/*获取hub的设备描述符*/
 static int get_hub_descriptor(struct usb_device *hdev, void *data)
 {
 	int i, ret, size;
@@ -588,7 +589,7 @@ static void kick_hub_wq(struct usb_hub *hub)
 	 * the new work is called or when it is canceled.
 	 */
 	intf = to_usb_interface(hub->intfdev);
-	usb_autopm_get_interface_no_resume(intf);
+	usb_autopm_get_interface_no_resume(intf);//防止电源管理把hub挂起
 	kref_get(&hub->kref);
 
 	if (queue_work(hub_wq, &hub->events))
@@ -856,6 +857,7 @@ static int hub_hub_status(struct usb_hub *hub,
 	int ret;
 
 	mutex_lock(&hub->status_mutex);
+	/*hub自己定义的请求 和标准请求不一样*/
 	ret = get_hub_status(hub->hdev, &hub->status->hub);
 	if (ret < 0) {
 		if (ret != -ENODEV)
@@ -1070,14 +1072,14 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 		 * for HUB_POST_RESET, but it's easier not to.
 		 */
 		if (type == HUB_INIT) {
-			unsigned delay = hub_power_on_good_delay(hub);
+			unsigned delay = hub_power_on_good_delay(hub);//上电后延时 使hub稳定
 
-			hub_power_on(hub, false);
+			hub_power_on(hub, false);//对所有端点上电
 			INIT_DELAYED_WORK(&hub->init_work, hub_init_func2);
 			queue_delayed_work(system_power_efficient_wq,
 					&hub->init_work,
 					msecs_to_jiffies(delay));
-
+			//进入初始化的第二阶段hub_init_func2，也就是下面的 init2:
 			/* Suppress autosuspend until init is done */
 			usb_autopm_get_interface_no_resume(
 					to_usb_interface(hub->intfdev));
@@ -1111,13 +1113,14 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 	 * Check each port and set hub->change_bits to let hub_wq know
 	 * which ports need attention.
 	 */
+	/*检查每个端口，设置hub->change_bits让hub_wq知道哪些端口需要注意*/
 	for (port1 = 1; port1 <= hdev->maxchild; ++port1) {
 		struct usb_port *port_dev = hub->ports[port1 - 1];
 		struct usb_device *udev = port_dev->child;
 		u16 portstatus, portchange;
 
 		portstatus = portchange = 0;
-		status = hub_port_status(hub, port1, &portstatus, &portchange);
+		status = hub_port_status(hub, port1, &portstatus, &portchange);//获取端口的状态，
 		if (udev || (portstatus & USB_PORT_STAT_CONNECTION))
 			dev_dbg(&port_dev->dev, "status %04x change %04x\n",
 					portstatus, portchange);
@@ -1227,12 +1230,12 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 	 * If any port-status changes do occur during this delay, hub_wq
 	 * will see them later and handle them normally.
 	 */
-	if (need_debounce_delay) {
+	if (need_debounce_delay) {//用于消抖
 		delay = HUB_DEBOUNCE_STABLE;
 
 		/* Don't do a long sleep inside a workqueue routine */
 		if (type == HUB_INIT2) {
-			INIT_DELAYED_WORK(&hub->init_work, hub_init_func3);
+			INIT_DELAYED_WORK(&hub->init_work, hub_init_func3);//进行第三个阶段init3:
 			queue_delayed_work(system_power_efficient_wq,
 					&hub->init_work,
 					msecs_to_jiffies(delay));
@@ -1242,17 +1245,17 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 		}
 	}
  init3:
-	hub->quiescing = 0;
+	hub->quiescing = 0;//记住这个位置
 
-	status = usb_submit_urb(hub->urb, GFP_NOIO);
+	status = usb_submit_urb(hub->urb, GFP_NOIO);//提交urb，等执行完成就会回调hub_irq
 	if (status < 0)
 		dev_err(hub->intfdev, "activate --> %d\n", status);
-	if (hub->has_indicators && blinkenlights)
+	if (hub->has_indicators && blinkenlights)//如果有指示灯，点亮
 		queue_delayed_work(system_power_efficient_wq,
 				&hub->leds, LED_CYCLE_PERIOD);
 
 	/* Scan all ports that need attention */
-	kick_hub_wq(hub);
+	kick_hub_wq(hub);//主要是queue_work(hub_wq, &hub->events)，也就是把hub_event加入工作队列，开始运行
 
 	/* Allow autosuspend if it was suppressed */
 	if (type <= HUB_INIT3)
@@ -1376,7 +1379,7 @@ static int hub_configure(struct usb_hub *hub,
 	if (ret < 0) {
 		message = "can't read hub descriptor";
 		goto fail;
-	} else if (hub->descriptor->bNbrPorts > USB_MAXCHILDREN) {
+	} else if (hub->descriptor->bNbrPorts > USB_MAXCHILDREN) {//一般31个就够用了
 		message = "hub has too many ports!";
 		ret = -ENODEV;
 		goto fail;
@@ -1419,7 +1422,7 @@ static int hub_configure(struct usb_hub *hub,
 		dev_dbg(hub_dev, "compound device; port removable status: %s\n", portstr);
 	} else
 		dev_dbg(hub_dev, "standalone hub\n");
-
+	/*电源切换的方式*/
 	switch (wHubCharacteristics & HUB_CHAR_LPSM) {
 	case HUB_CHAR_COMMON_LPSM:
 		dev_dbg(hub_dev, "ganged power switching\n");
@@ -1432,7 +1435,7 @@ static int hub_configure(struct usb_hub *hub,
 		dev_dbg(hub_dev, "no power switching (usb 1.0)\n");
 		break;
 	}
-
+	/*过流保护模式*/
 	switch (wHubCharacteristics & HUB_CHAR_OCPM) {
 	case HUB_CHAR_COMMON_OCPM:
 		dev_dbg(hub_dev, "global over-current protection\n");
@@ -1445,10 +1448,24 @@ static int hub_configure(struct usb_hub *hub,
 		dev_dbg(hub_dev, "no over-current protection\n");
 		break;
 	}
-
+	/*
+		一般高速设备不支持低速/全速设备 ，所以有了tt电路负责数据转换
+		无tt电路的hub                           bDeviceProtocol = 0
+									接口描述符bInterfaceProtocol = 0
+		single tt表示整个hub就是一个tt  		 bDeviceProtocol = 1 
+									接口描述符bInterfaceProtocol = 0
+		multi tt表示hub的每个端口都配了一个tt	  bDeviceProtocol = 2 
+									第一个接口描述符bInterfaceProtocol = 1
+									第二个接口描述符bInterfaceProtocol = 2
+		usb 3.0 不需要 TT电路					 bDeviceProtocol = 3
+	*/
 	spin_lock_init (&hub->tt.lock);
 	INIT_LIST_HEAD (&hub->tt.clear_list);
-	INIT_WORK(&hub->tt.clear_work, hub_tt_work);
+	INIT_WORK(&hub->tt.clear_work, hub_tt_work);//初始化工作队列hub_tt_work
+	/*
+		低速全速的HUB中spec的bDeviceProtocol为USB_HUB_PR_FS（0）也就是没有tt电路
+		高速single ttHUB中spec的bDeviceProtocol为USB_HUB_PR_HS_MULTI_TT（1）
+	*/
 	switch (hdev->descriptor.bDeviceProtocol) {
 	case USB_HUB_PR_FS:
 		break;
@@ -1474,7 +1491,7 @@ static int hub_configure(struct usb_hub *hub,
 			hdev->descriptor.bDeviceProtocol);
 		break;
 	}
-
+	/*TT电路在处理低速、全速时候时间缓冲*/
 	/* Note 8 FS bit times == (8 bits / 12000000 bps) ~= 666ns */
 	switch (wHubCharacteristics & HUB_CHAR_TTTT) {
 	case HUB_TTTT_8_BITS:
@@ -1504,7 +1521,7 @@ static int hub_configure(struct usb_hub *hub,
 			32, hub->tt.think_time);
 		break;
 	}
-
+	/*hub上的灯 0 不支持 1 支持*/
 	/* probe() zeroes hub->indicator[] */
 	if (wHubCharacteristics & HUB_CHAR_PORTIND) {
 		hub->has_indicators = 1;
@@ -1517,13 +1534,16 @@ static int hub_configure(struct usb_hub *hub,
 	/* power budgeting mostly matters with bus-powered hubs,
 	 * and battery-powered root hubs (may provide just 8 mA).
 	 */
+	/*获取设备状态*/
 	ret = usb_get_status(hdev, USB_RECIP_DEVICE, 0, &hubstatus);
 	if (ret) {
 		message = "can't get hub status";
 		goto fail;
 	}
 	hcd = bus_to_hcd(hdev->bus);
+	/*设置电流大小*/
 	if (hdev == hdev->bus->root_hub) {
+		/*hub 就是roothub*/
 		if (hcd->power_budget > 0)
 			hdev->bus_mA = hcd->power_budget;
 		else
@@ -1551,12 +1571,13 @@ static int hub_configure(struct usb_hub *hub,
 	} else {	/* Self-powered external hub */
 		/* FIXME: What about battery-powered external hubs that
 		 * provide less current per port? */
+		/*hub外部供电*/
 		hub->mA_per_port = full_load;
 	}
 	if (hub->mA_per_port < full_load)
 		dev_dbg(hub_dev, "%umA bus power budget for each child\n",
 				hub->mA_per_port);
-
+	//获取hub的状态
 	ret = hub_hub_status(hub, &hubstatus, &hubchange);
 	if (ret < 0) {
 		message = "can't get hub status";
@@ -1580,19 +1601,24 @@ static int hub_configure(struct usb_hub *hub,
 	 * maxpktsize is defined in hcd.c's fake endpoint descriptors
 	 * to be big enough for at least USB_MAXCHILDREN ports. */
 	pipe = usb_rcvintpipe(hdev, endpoint->bEndpointAddress);
+	/*获得一个端点描述符里面得wMaxPacketSize*/
 	maxp = usb_maxpacket(hdev, pipe, usb_pipeout(pipe));
 
 	if (maxp > sizeof(*hub->buffer))
 		maxp = sizeof(*hub->buffer);
-
+	//分配urb
 	hub->urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!hub->urb) {
 		ret = -ENOMEM;
 		goto fail;
 	}
-
+	/* 
+	UHCI必须要知道HUB的端口的一些连接状态,因此,需要HUB周期性的上报它的端口连接状态.这个URB就是用来做这个用途的.
+    UHCI周期性的发送IN方向中断传输传输给HUB.HUB就会通过这个URB将端口信息发送给UHCI.那这个轮询周期是多长呢?
+    根据我们之前分析的UHCI的知识,它的调度周期是由endpoint的bInterval 字段所决定的.
+	*/
 	usb_fill_int_urb(hub->urb, hdev, pipe, *hub->buffer, maxp, hub_irq,
-		hub, endpoint->bInterval);
+		hub, endpoint->bInterval);//填充urb,完成之后调用hub_irq函数
 
 	/* maybe cycle the hub leds */
 	if (hub->has_indicators && blinkenlights)
@@ -1600,6 +1626,8 @@ static int hub_configure(struct usb_hub *hub,
 
 	mutex_lock(&usb_port_peer_mutex);
 	for (i = 0; i < maxchild; i++) {
+		//创建hub的端点设备，
+		//比如/sys/devices/platform/soc@0/38100000.usb/xhci-hcd.0.auto/usb1/1-0:1.0/usb1-port1
 		ret = usb_hub_create_port_device(hub, i + 1);
 		if (ret < 0) {
 			dev_err(hub->intfdev,
@@ -1621,6 +1649,7 @@ static int hub_configure(struct usb_hub *hub,
 	/* Update the HCD's internal representation of this hub before hub_wq
 	 * starts getting port status changes for devices under the hub.
 	 */
+	//在hub_wq之前，更新这个集线器的HCD内部数据，开始为集线器下的设备获取端口状态变化。
 	if (hcd->driver->update_hub_device) {
 		ret = hcd->driver->update_hub_device(hcd, hdev,
 				&hub->tt, GFP_KERNEL);
@@ -1754,26 +1783,26 @@ static int hub_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	 */
 	if (hdev->parent) {		/* normal device */
 		usb_enable_autosuspend(hdev);
-	} else {			/* root hub */
+	} else {			/* root hub *///根节点没有bus_suspend和bus_resume方法
 		const struct hc_driver *drv = bus_to_hcd(hdev->bus)->driver;
 
 		if (drv->bus_suspend && drv->bus_resume)
 			usb_enable_autosuspend(hdev);
 	}
-
+	/*hub的层级满了*/
 	if (hdev->level == MAX_TOPO_LEVEL) {
 		dev_err(&intf->dev,
 			"Unsupported bus topology: hub nested too deep\n");
 		return -E2BIG;
 	}
-
+/*OTG 就是既能做host 又能做device*/
 #ifdef	CONFIG_USB_OTG_BLACKLIST_HUB
 	if (hdev->parent) {
 		dev_warn(&intf->dev, "ignoring external hub\n");
 		return -ENODEV;
 	}
 #endif
-
+	/*判断usb设备属于哪个类哪个子类，hub的子类为0所以这里判断一下防止出错*/
 	/* Some hubs have a subclass of 1, which AFAICT according to the */
 	/*  specs is not defined, but it works */
 	if ((desc->desc.bInterfaceSubClass != 0) &&
@@ -1782,46 +1811,48 @@ descriptor_error:
 		dev_err (&intf->dev, "bad descriptor, ignoring hub\n");
 		return -EIO;
 	}
-
+/*	判断hub有几个端点，spec规定hub只有一个端点，也就是中断端点，HUB的传输是中断传输，
+	所以这里判断一下是不是只有一个端点
+*/
 	/* Multiple endpoints? What kind of mutant ninja-hub is this? */
 	if (desc->desc.bNumEndpoints != 1)
 		goto descriptor_error;
-
+	/*获取这个端点描述符*/
 	endpoint = &desc->endpoint[0].desc;
-
+	/*判断这个端点是不是中断端点*/
 	/* If it's not an interrupt in endpoint, we'd better punt! */
 	if (!usb_endpoint_is_int_in(endpoint))
 		goto descriptor_error;
 
 	/* We found a hub */
 	dev_info (&intf->dev, "USB hub found\n");
-
-	hub = kzalloc(sizeof(*hub), GFP_KERNEL);
+	/*为usb_hub结构体分配内存*/
+	hub = kzalloc(sizeof(*hub), GFP_KERNEL); //分配usb_hub结构体
 	if (!hub) {
 		dev_dbg (&intf->dev, "couldn't kmalloc hub struct\n");
 		return -ENOMEM;
 	}
-
+	/*初始化引用计数*/
 	kref_init(&hub->kref);
 	hub->intfdev = &intf->dev;
 	hub->hdev = hdev;
-	INIT_DELAYED_WORK(&hub->leds, led_work);
-	INIT_DELAYED_WORK(&hub->init_work, NULL);
-	INIT_WORK(&hub->events, hub_event);
+	INIT_DELAYED_WORK(&hub->leds, led_work);//用于hub led闪烁的指示灯
+	INIT_DELAYED_WORK(&hub->init_work, NULL); 
+	INIT_WORK(&hub->events, hub_event);//用于处理hub的事件
 	usb_get_intf(intf);
 	usb_get_dev(hdev);
 
-	usb_set_intfdata (intf, hub);
+	usb_set_intfdata (intf, hub);//让接口和hub关联起来
 	intf->needs_remote_wakeup = 1;
 	pm_suspend_ignore_children(&intf->dev, true);
 
 	if (hdev->speed == USB_SPEED_HIGH)
-		highspeed_hubs++;
+		highspeed_hubs++;/*高速设备的话*/
 
 	if (id->driver_info & HUB_QUIRK_CHECK_PORT_AUTOSUSPEND)
 		hub->quirk_check_port_auto_suspend = 1;
 
-	if (hub_configure(hub, endpoint) >= 0)
+	if (hub_configure(hub, endpoint) >= 0)//设置hub的端点0
 		return 0;
 
 	hub_disconnect (intf);
@@ -4634,6 +4665,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 
 	/* Disconnect any existing devices under this port */
 	if (udev) {
+		//断开该端口设备的连接：如果是root hub，挂接在控制器上的，则断开该端口下的设备。
 		if (hcd->usb_phy && !hdev->parent)
 			usb_phy_notify_disconnect(hcd->usb_phy, udev->speed);
 		usb_disconnect(&port_dev->child);
@@ -4648,11 +4680,12 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 
 	if (portchange & (USB_PORT_STAT_C_CONNECTION |
 				USB_PORT_STAT_C_ENABLE)) {
+		//spec规定只有持续了100ms的插入才算真正的插入，用于去抖
 		status = hub_port_debounce_be_stable(hub, port1);
 		if (status < 0) {
 			if (status != -ENODEV &&
 				port1 != unreliable_port &&
-				printk_ratelimit())
+				printk_ratelimit())//这个函数是用于防止一直打印相同的消息导致日志一溢出
 				dev_err(&port_dev->dev, "connect-debounce failed\n");
 			portstatus &= ~USB_PORT_STAT_CONNECTION;
 			unreliable_port = port1;
@@ -4664,6 +4697,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 	/* Return now if debouncing failed or nothing is connected or
 	 * the device was "removed".
 	 */
+	/*没链接 或者连接了 没移除*/
 	if (!(portstatus & USB_PORT_STAT_CONNECTION) ||
 			test_bit(port1, hub->removed_bits)) {
 
@@ -4671,6 +4705,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 		 * maybe switch power back on (e.g. root hub was reset)
 		 * but only if the port isn't owned by someone else.
 		 */
+		/*电源关闭了的话就重新打开电源*/
 		if (hub_is_port_power_switchable(hub)
 				&& !port_is_power_on(hub, portstatus)
 				&& !port_dev->port_owner)
@@ -4686,11 +4721,17 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 		unit_load = 100;
 
 	status = 0;
+	/*正常连接的情况下 新旧方案每种测试两次*/
 	for (i = 0; i < SET_CONFIG_TRIES; i++) {
 
 		/* reallocate for each attempt, since references
 		 * to the previous one can escape in various ways
 		 */
+		/* 
+		 	分配usb设备内存并初始化bus、type、group、
+		 	设备在系统中的路径（dev->path）、ep0的属性并设置设备状态为attached。
+			 向设备模型中添加这个设备
+		*/
 		udev = usb_alloc_dev(hdev, hdev->bus, port1);
 		if (!udev) {
 			dev_err(&port_dev->dev,
@@ -4698,18 +4739,18 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 			goto done;
 		}
 
-		usb_set_device_state(udev, USB_STATE_POWERED);
-		udev->bus_mA = hub->mA_per_port;
-		udev->level = hdev->level + 1;
+		usb_set_device_state(udev, USB_STATE_POWERED);//设置为 power状态，并设置电源等。
+		udev->bus_mA = hub->mA_per_port;//设置供电
+		udev->level = hdev->level + 1;//多一级的hub
 		udev->wusb = hub_is_wusb(hub);
 
 		/* Only USB 3.0 devices are connected to SuperSpeed hubs. */
-		if (hub_is_superspeed(hub->hdev))
+		if (hub_is_superspeed(hub->hdev))//判断速度是否为高速
 			udev->speed = USB_SPEED_SUPER;
 		else
 			udev->speed = USB_SPEED_UNKNOWN;
 
-		choose_devnum(udev);
+		choose_devnum(udev);//获取devnum，在usbfs中，devnum被用作文件名.
 		if (udev->devnum <= 0) {
 			status = -ENOTCONN;	/* Don't retry */
 			goto loop;
@@ -4717,7 +4758,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 
 		/* reset (non-USB 3.0 devices) and get descriptor */
 		usb_lock_port(port_dev);
-		status = hub_port_init(hub, udev, port1, i);
+		status = hub_port_init(hub, udev, port1, i);//初始化端口，设置地址，读取设备描述符
 		usb_unlock_port(port_dev);
 		if (status < 0)
 			goto loop;
@@ -4735,7 +4776,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 		if (udev->descriptor.bDeviceClass == USB_CLASS_HUB
 				&& udev->bus_mA <= unit_load) {
 			u16	devstat;
-
+			/*当前hub的端口上要是连接的还是hub 那就不一样*/
 			status = usb_get_status(udev, USB_RECIP_DEVICE, 0,
 					&devstat);
 			if (status) {
@@ -4786,7 +4827,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 
 		/* Run it through the hoops (find a driver, etc) */
 		if (!status) {
-			status = usb_new_device(udev);
+			status = usb_new_device(udev);//寻找连接在端口设备对应的驱动程序调用驱动程序的probe函数
 			if (status) {
 				mutex_lock(&usb_port_peer_mutex);
 				spin_lock_irq(&device_state_lock);
@@ -4803,7 +4844,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 		if (status)
 			goto loop_disable;
 
-		status = hub_power_remaining(hub);
+		status = hub_power_remaining(hub);//电源管理
 		if (status)
 			dev_dbg(hub->intfdev, "%dmA power budget left\n", status);
 
@@ -4842,6 +4883,12 @@ done:
  *		a firmware download)
  * caller already locked the hub
  */
+/*
+	端口上有连接变化时候调用这个函数，有三种情况调用该函数
+	1.物理连接有变化
+	2.端口本身重新使能
+	2.复位设备时候发现设备描述符变了
+*/
 static void hub_port_connect_change(struct usb_hub *hub, int port1,
 					u16 portstatus, u16 portchange)
 		__must_hold(&port_dev->status_lock)
@@ -4852,7 +4899,7 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 
 	dev_dbg(&port_dev->dev, "status %04x, change %04x, %s\n", portstatus,
 			portchange, portspeed(hub, portstatus));
-
+	/*led灯*/
 	if (hub->has_indicators) {
 		set_port_led(hub, port1, HUB_LED_AUTO);
 		hub->indicator[port1-1] = INDICATOR_AUTO;
@@ -4884,7 +4931,7 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 			/* Don't resuscitate */;
 		}
 	}
-	clear_bit(port1, hub->change_bits);
+	clear_bit(port1, hub->change_bits);//记住这个位置
 
 	/* successfully revalidated the connection */
 	if (status == 0)
@@ -4910,8 +4957,9 @@ static void port_event(struct usb_hub *hub, int port1)
 
 	if (hub_port_status(hub, port1, &portstatus, &portchange) < 0)
 		return;
-
+	/*端口连接了设备*/
 	if (portchange & USB_PORT_STAT_C_CONNECTION) {
+		/*清除就等于承认 所以记录connect_change*/
 		usb_clear_port_feature(hdev, port1, USB_PORT_FEAT_C_CONNECTION);
 		connect_change = 1;
 	}
@@ -4920,6 +4968,7 @@ static void port_event(struct usb_hub *hub, int port1)
 		if (!connect_change)
 			dev_dbg(&port_dev->dev, "enable change, status %08x\n",
 					portstatus);
+		/*清除就等于承认 说明这个端口是由disable变成enable的*/
 		usb_clear_port_feature(hdev, port1, USB_PORT_FEAT_C_ENABLE);
 
 		/*
@@ -4927,13 +4976,14 @@ static void port_event(struct usb_hub *hub, int port1)
 		 * to be shutdown by the hub, this hack enables them again.
 		 * Works at least with mouse driver.
 		 */
+		/*有可能 hub端口 enable 变成disable 是因为电磁干扰造成的 也就是 连接没变但是供电变了*/
 		if (!(portstatus & USB_PORT_STAT_ENABLE)
 		    && !connect_change && udev) {
 			dev_err(&port_dev->dev, "disabled by hub (EMI?), re-enabling...\n");
 			connect_change = 1;
 		}
 	}
-
+	/*这个信息说明这个端口可能存在电流过大的情况 就死掉*/
 	if (portchange & USB_PORT_STAT_C_OVERCURRENT) {
 		u16 status = 0, unused;
 
@@ -4946,7 +4996,7 @@ static void port_event(struct usb_hub *hub, int port1)
 		if (status & USB_PORT_STAT_OVERCURRENT)
 			dev_err(&port_dev->dev, "over-current condition\n");
 	}
-
+	/*端口从reseting  变成 enable时候的状态信息处理*/
 	if (portchange & USB_PORT_STAT_C_RESET) {
 		dev_dbg(&port_dev->dev, "reset change\n");
 		usb_clear_port_feature(hdev, port1, USB_PORT_FEAT_C_RESET);
@@ -4995,7 +5045,7 @@ static void port_event(struct usb_hub *hub, int port1)
 			connect_change = 0;
 		}
 	}
-
+	/*如果connect_change==1 时候的正确流程  没有其它问题的时候跑*/
 	if (connect_change)
 		hub_port_connect_change(hub, port1, portstatus, portchange);
 }
@@ -5030,11 +5080,11 @@ static void hub_event(struct work_struct *work)
 	/* If the hub has died, clean up after it */
 	if (hdev->state == USB_STATE_NOTATTACHED) {
 		hub->error = -ENODEV;
-		hub_quiesce(hub, HUB_DISCONNECT);
+		hub_quiesce(hub, HUB_DISCONNECT);//reset
 		goto out_hdev_lock;
 	}
 
-	/* Autoresume */
+	/*电源引用计数+1 只要这个引用计数大于0 就不允许aotosuspend */
 	ret = usb_autopm_get_interface(intf);
 	if (ret) {
 		dev_dbg(hub_dev, "Can't autoresume: %d\n", ret);
@@ -5048,7 +5098,7 @@ static void hub_event(struct work_struct *work)
 	if (hub->error) {
 		dev_dbg(hub_dev, "resetting for error %d\n", hub->error);
 
-		ret = usb_reset_device(hdev);
+		ret = usb_reset_device(hdev);//警告接口驱动程序并执行USB端口重置
 		if (ret) {
 			dev_dbg(hub_dev, "error resetting hub: %d\n", ret);
 			goto out_autopm;
@@ -5077,7 +5127,7 @@ static void hub_event(struct work_struct *work)
 			pm_runtime_get_noresume(&port_dev->dev);
 			pm_runtime_barrier(&port_dev->dev);
 			usb_lock_port(port_dev);
-			port_event(hub, i);
+			port_event(hub, i);//主要得处理事件
 			usb_unlock_port(port_dev);
 			pm_runtime_put_sync(&port_dev->dev);
 		}
@@ -5166,6 +5216,8 @@ int usb_hub_init(void)
 	 * device was gone before the EHCI controller had handed its port
 	 * over to the companion full-speed controller.
 	 */
+	/* 工作队列需要是可冻结的，以避免干扰usb持续的端口切换。
+    否则它可能会看到全速设备在EHCI控制器把端口交给全速控制器之前就消失了 */
 	hub_wq = alloc_workqueue("usb_hub_wq", WQ_FREEZABLE, 0);
 	if (hub_wq)
 		return 0;
@@ -5490,7 +5542,7 @@ int usb_reset_device(struct usb_device *udev)
 	struct usb_port *port_dev;
 	struct usb_host_config *config = udev->actconfig;
 	struct usb_hub *hub = usb_hub_to_struct_hub(udev->parent);
-
+	/*这两个状态是不允许被reset的*/
 	if (udev->state == USB_STATE_NOTATTACHED ||
 			udev->state == USB_STATE_SUSPENDED) {
 		dev_dbg(&udev->dev, "device reset not allowed in state %d\n",

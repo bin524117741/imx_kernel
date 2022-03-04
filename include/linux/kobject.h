@@ -61,13 +61,13 @@ enum kobject_action {
 };
 
 struct kobject {
-	const char		*name;
-	struct list_head	entry;
-	struct kobject		*parent;
-	struct kset		*kset;
-	struct kobj_type	*ktype;
-	struct kernfs_node	*sd;
-	struct kref		kref;
+	const char		*name;/* kobject对象的名字，对应sysfs中的目录名 */
+	struct list_head	entry;/* 在kset中的链表节点 */
+	struct kobject		*parent;/* 用于构建sysfs中kobjects的层次结构，指向父目录 */
+	struct kset		*kset; /* 所属kset */
+	struct kobj_type	*ktype;/* 特定对象类型相关，用于跟踪object及其属性 */
+	struct kernfs_node	*sd; /* 指向该目录的dentry私有数据 */
+	struct kref		kref;/* kobject的引用计数，初始值为1 */
 #ifdef CONFIG_DEBUG_KOBJECT_RELEASE
 	struct delayed_work	release;
 #endif

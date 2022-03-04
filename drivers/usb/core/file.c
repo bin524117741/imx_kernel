@@ -116,7 +116,7 @@ int usb_major_init(void)
 {
 	int error;
 
-	error = register_chrdev(USB_MAJOR, "usb", &usb_fops);
+	error = register_chrdev(USB_MAJOR, "usb", &usb_fops);//注册180的设备号
 	if (error)
 		printk(KERN_ERR "Unable to get major %d for usb devices\n",
 		       USB_MAJOR);

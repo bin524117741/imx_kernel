@@ -98,13 +98,13 @@ int usb_choose_configuration(struct usb_device *udev)
 		 * cause us to reject configurations that we should have
 		 * accepted.
 		 */
-
+		/*设备索取电流比hub能提供的最大电流还要大的话*/
 		/* Rule out configs that draw too much bus current */
 		if (usb_get_max_power(udev, c) > udev->bus_mA) {
 			insufficient_power++;
 			continue;
 		}
-
+		/*优先选择非UCVS的接口*/
 		/* When the first config's first interface is one of Microsoft's
 		 * pet nonstandard Ethernet-over-USB protocols, ignore it unless
 		 * this kernel has enabled the necessary host side driver.
@@ -156,7 +156,7 @@ int usb_choose_configuration(struct usb_device *udev)
 	return i;
 }
 EXPORT_SYMBOL_GPL(usb_choose_configuration);
-
+/*从设备中选择一个合适的设备去match*/
 static int generic_probe(struct usb_device *udev)
 {
 	int err, c;
@@ -164,9 +164,15 @@ static int generic_probe(struct usb_device *udev)
 	/* Choose and set the configuration.  This registers the interfaces
 	 * with the driver core and lets interface drivers bind to them.
 	 */
+	//至于udev->authorized,在root hub的初始化中,
+	//是会将其初始化为1的.后面的逻辑就更简单了.为root hub 选择一个配置然后再设定这个配置.
 	if (udev->authorized == 0)
 		dev_err(&udev->dev, "Device is not authorized for usage\n");
 	else {
+		/*
+			Usb2.0 spec上规定,对于hub设备,只能有一个config,一个interface,一个endpoint.
+			实际上,在这里,对hub的选择约束不大,反正就一个配置,不管怎么样,选择和设定都是这个配置.
+		*/
 		c = usb_choose_configuration(udev);
 		if (c >= 0) {
 			err = usb_set_configuration(udev, c);

@@ -1546,7 +1546,7 @@ EXPORT_SYMBOL_GPL(usb_hcd_map_urb_for_dma);
 int usb_hcd_submit_urb (struct urb *urb, gfp_t mem_flags)
 {
 	int			status;
-	struct usb_hcd		*hcd = bus_to_hcd(urb->dev->bus);
+	struct usb_hcd		*hcd = bus_to_hcd(urb->dev->bus);//获取usb_bus所在的那个usb_hcd
 
 	/* increment urb's reference count as part of giving it to the HCD
 	 * (which will control it).  HCD guarantees that it either returns
@@ -1555,7 +1555,7 @@ int usb_hcd_submit_urb (struct urb *urb, gfp_t mem_flags)
 	usb_get_urb(urb);
 	atomic_inc(&urb->use_count);
 	atomic_inc(&urb->dev->urbnum);
-	usbmon_urb_submit(&hcd->self, urb);
+	usbmon_urb_submit(&hcd->self, urb);//将传递过来的urb 指派给合适的主机控制器驱动
 
 	/* NOTE requirements on root-hub callers (usbfs and the hub
 	 * driver, for now):  URBs' urb->transfer_buffer must be

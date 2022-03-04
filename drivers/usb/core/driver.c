@@ -259,7 +259,7 @@ static int usb_probe_device(struct device *dev)
 		error = usb_autoresume_device(udev);
 
 	if (!error)
-		error = udriver->probe(udev);
+		error = udriver->probe(udev);//这里调用的是generic_probe
 	return error;
 }
 
@@ -781,10 +781,10 @@ EXPORT_SYMBOL_GPL(usb_match_id);
 static int usb_device_match(struct device *dev, struct device_driver *drv)
 {
 	/* devices and interfaces are handled separately */
-	if (is_usb_device(dev)) {
+	if (is_usb_device(dev)) {//判断是不是设备
 
 		/* interface drivers never match devices */
-		if (!is_usb_device_driver(drv))
+		if (!is_usb_device_driver(drv))//判断是不是设备驱动
 			return 0;
 
 		/* TODO: Add real matching code */
@@ -792,7 +792,7 @@ static int usb_device_match(struct device *dev, struct device_driver *drv)
 
 	} else if (is_usb_interface(dev)) {
 		struct usb_interface *intf;
-		struct usb_driver *usb_drv;
+		struct usb_driver *usb_drv;//USB接口驱动结构体
 		const struct usb_device_id *id;
 
 		/* device drivers never match interfaces */
@@ -874,7 +874,7 @@ int usb_register_device_driver(struct usb_device_driver *new_udriver,
 	if (usb_disabled())
 		return -ENODEV;
 
-	new_udriver->drvwrap.for_devices = 1;
+	new_udriver->drvwrap.for_devices = 1;//match中is_usb_device_driver通过此项来判断
 	new_udriver->drvwrap.driver.name = new_udriver->name;
 	new_udriver->drvwrap.driver.bus = &usb_bus_type;
 	new_udriver->drvwrap.driver.probe = usb_probe_device;
@@ -1523,6 +1523,7 @@ EXPORT_SYMBOL_GPL(usb_disable_autosuspend);
  *
  * This routine can run only in process context.
  */
+/*减少usb 电源得引用计数 引用计数为0时 打开autosuspend*/
 void usb_autosuspend_device(struct usb_device *udev)
 {
 	int	status;
@@ -1554,6 +1555,7 @@ void usb_autosuspend_device(struct usb_device *udev)
  *
  * Return: 0 on success. A negative error code otherwise.
  */
+/*增加usb 电源得引用计数 防止 autosuspend发生*/
 int usb_autoresume_device(struct usb_device *udev)
 {
 	int	status;

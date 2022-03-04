@@ -10,7 +10,7 @@
 
 #define to_urb(d) container_of(d, struct urb, kref)
 
-
+/*销毁*/
 static void urb_destroy(struct kref *kref)
 {
 	struct urb *urb = to_urb(kref);
@@ -35,6 +35,7 @@ static void urb_destroy(struct kref *kref)
  *
  * Only use this function if you _really_ understand what you are doing.
  */
+/*初始化urb*/
 void usb_init_urb(struct urb *urb)
 {
 	if (urb) {
@@ -61,6 +62,7 @@ EXPORT_SYMBOL_GPL(usb_init_urb);
  *
  * Return: A pointer to the new urb, or %NULL if no memory is available.
  */
+/*申请一个urb并初始化*/
 struct urb *usb_alloc_urb(int iso_packets, gfp_t mem_flags)
 {
 	struct urb *urb;
@@ -87,6 +89,7 @@ EXPORT_SYMBOL_GPL(usb_alloc_urb);
  * Note: The transfer buffer associated with the urb is not freed unless the
  * URB_FREE_BUFFER transfer flag is set.
  */
+/*释放urb并注销*/
 void usb_free_urb(struct urb *urb)
 {
 	if (urb)
@@ -333,7 +336,7 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
 	int				is_out;
 	unsigned int			allowed;
 
-	if (!urb || !urb->complete)
+	if (!urb || !urb->complete)//urb为空 或者已经被处理完了
 		return -EINVAL;
 	if (urb->hcpriv) {
 		WARN_ONCE(1, "URB %p submitted while active\n", urb);
@@ -348,13 +351,13 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
 	 * will be required to set urb->ep directly and we will eliminate
 	 * urb->pipe.
 	 */
-	ep = usb_pipe_endpoint(dev, urb->pipe);
+	ep = usb_pipe_endpoint(dev, urb->pipe);//设置端点的传输通道
 	if (!ep)
 		return -ENOENT;
 
 	urb->ep = ep;
 	urb->status = -EINPROGRESS;
-	urb->actual_length = 0;
+	urb->actual_length = 0;//传输之前 实际传输长度为0
 
 	/* Lots of sanity checks, so HCDs can rely on clean data
 	 * and don't need to duplicate tests
@@ -657,15 +660,18 @@ EXPORT_SYMBOL_GPL(usb_unlink_urb);
  * This routine should not be called by a driver after its disconnect
  * method has returned.
  */
+/*
+不能用于中断上下文 ，可以睡眠
+*/
 void usb_kill_urb(struct urb *urb)
 {
 	might_sleep();
-	if (!(urb && urb->dev && urb->ep))
+	if (!(urb && urb->dev && urb->ep))//判断要urb要去哪个设备 或者哪个端点之类的
 		return;
 	atomic_inc(&urb->reject);
 
-	usb_hcd_unlink_urb(urb, -ENOENT);
-	wait_event(usb_kill_urb_queue, atomic_read(&urb->use_count) == 0);
+	usb_hcd_unlink_urb(urb, -ENOENT);//这里告诉HCD一声 驱动要终止这个urb了
+	wait_event(usb_kill_urb_queue, atomic_read(&urb->use_count) == 0);//等销毁时候use_count == 0 唤醒这个等待队列
 
 	atomic_dec(&urb->reject);
 }

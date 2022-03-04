@@ -103,7 +103,7 @@ extern void bus_remove_file(struct bus_type *, struct bus_attribute *);
  * private data.
  */
 struct bus_type {
-	const char		*name;
+	const char		*name;//总线名字
 	const char		*dev_name;
 	struct device		*dev_root;
 	struct device_attribute	*dev_attrs;	/* use dev_groups instead */

@@ -46,15 +46,17 @@ static int usb_start_wait_urb(struct urb *urb, int timeout, int *actual_length)
 	unsigned long expire;
 	int retval;
 
-	init_completion(&ctx.done);
+	init_completion(&ctx.done);//初始化完成量
 	urb->context = &ctx;
 	urb->actual_length = 0;
-	retval = usb_submit_urb(urb, GFP_NOIO);
+	retval = usb_submit_urb(urb, GFP_NOIO);//将urb提交给USB core去处理
 	if (unlikely(retval))
 		goto out;
 
-	expire = timeout ? msecs_to_jiffies(timeout) : MAX_SCHEDULE_TIMEOUT;
+	expire = timeout ? msecs_to_jiffies(timeout) : MAX_SCHEDULE_TIMEOUT;//设置超时时间为jiffies
+	/*等处理结果*/
 	if (!wait_for_completion_timeout(&ctx.done, expire)) {
+		/*超时*/
 		usb_kill_urb(urb);
 		retval = (ctx.status == -ENOENT ? -ETIMEDOUT : ctx.status);
 
@@ -86,14 +88,14 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
 	int retv;
 	int length;
 
-	urb = usb_alloc_urb(0, GFP_NOIO);
+	urb = usb_alloc_urb(0, GFP_NOIO);//创建一个urb
 	if (!urb)
 		return -ENOMEM;
 
 	usb_fill_control_urb(urb, usb_dev, pipe, (unsigned char *)cmd, data,
-			     len, usb_api_blocking_completion, NULL);
+			     len, usb_api_blocking_completion, NULL);//初始化控制URB
 
-	retv = usb_start_wait_urb(urb, timeout, &length);
+	retv = usb_start_wait_urb(urb, timeout, &length);//将urb提交给usb core 然后等待处理结果或者超时
 	if (retv < 0)
 		return retv;
 	else
@@ -128,6 +130,7 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
  * Return: If successful, the number of bytes transferred. Otherwise, a negative
  * error number.
  */
+/*设备从USB_STATE_DEFAULT 变成 USB_STATE_ADDRESS状态时候  hub使用这个函数*/
 int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
 		    __u8 requesttype, __u16 value, __u16 index, void *data,
 		    __u16 size, int timeout)
@@ -638,7 +641,7 @@ int usb_get_descriptor(struct usb_device *dev, unsigned char type,
 
 	memset(buf, 0, size);	/* Make sure we parse really received data */
 
-	for (i = 0; i < 3; ++i) {
+	for (i = 0; i < 3; ++i) {//就是多获取几次来实验，防止不规矩的厂商一次获取不到
 		/* retry on length 0 or error; some devices are flakey */
 		result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
 				USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
@@ -939,6 +942,11 @@ int usb_get_device_descriptor(struct usb_device *dev, unsigned int size)
  * Returns 0 and the status value in *@data (in host byte order) on success,
  * or else the status code from the underlying usb_control_msg() call.
  */
+/*
+	获取usb设备的状态 type = 0；
+	获取usb接口的状态 type = 1；
+	获取usb接口的状态 type = 2；
+*/
 int usb_get_status(struct usb_device *dev, int type, int target, void *data)
 {
 	int ret;
@@ -1049,17 +1057,12 @@ static void remove_intf_ep_devs(struct usb_interface *intf)
 }
 
 /**
- * usb_disable_endpoint -- Disable an endpoint by address
- * @dev: the device whose endpoint is being disabled
- * @epaddr: the endpoint's address.  Endpoint number for output,
- *	endpoint number + USB_DIR_IN for input
- * @reset_hardware: flag to erase any endpoint state stored in the
- *	controller hardware
- *
- * Disables the endpoint for URB submission and nukes all pending URBs.
- * If @reset_hardware is set then also deallocates hcd/hardware state
- * for the endpoint.
- */
+* usb_disable_endpoint——通过地址禁用端点
+* @dev:终端被禁用的设备
+* @epaddr:端点地址。输出端点编号，输入端点号+ USB_DIR_IN
+* @reset_hardware:标记擦除存储在控制器硬件禁用终端URB提交和核所有未决的URB。
+*  如果设置了@reset_hardware，则释放hcd/hardware状态表示端点。
+*/
 void usb_disable_endpoint(struct usb_device *dev, unsigned int epaddr,
 		bool reset_hardware)
 {
@@ -1142,6 +1145,10 @@ void usb_disable_interface(struct usb_device *dev, struct usb_interface *intf,
  * pending urbs) and usbcore state for the interfaces, so that usbcore
  * must usb_set_configuration() before any interfaces could be used.
  */
+/*
+	将设备的所有端点都删除掉，将设备当前配置所使用的接口都从驱动中卸载掉
+	也就是将驱动和接口分开
+*/
 void usb_disable_device(struct usb_device *dev, int skip_ep0)
 {
 	int i;
@@ -1150,12 +1157,18 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 	/* getting rid of interfaces will disconnect
 	 * any drivers bound to them (a key side effect)
 	 */
+	/*表示当前激活的配置*/
 	if (dev->actconfig) {
 		/*
 		 * FIXME: In order to avoid self-deadlock involving the
 		 * bandwidth_mutex, we have to mark all the interfaces
 		 * before unregistering any of them.
 		 */
+		/*
+			下面这两个for循环
+			第一个for 将当前配置的所有接口都得卸载标志都写1
+			第二个for 将当前配置的所有接口都从设备模型中删除掉
+		*/
 		for (i = 0; i < dev->actconfig->desc.bNumInterfaces; i++)
 			dev->actconfig->interface[i]->unregistering = 1;
 
@@ -1192,17 +1205,21 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 
 	dev_dbg(&dev->dev, "%s nuking %s URBs\n", __func__,
 		skip_ep0 ? "non-ep0" : "all");
+	/*两种情况下skip_ep0为0 
+		1.设备断开时
+		2.设备从Default状态进化到Address状态
+	*/
 	if (hcd->driver->check_bandwidth) {
-		/* First pass: Cancel URBs, leave endpoint pointers intact. */
+		/* 第一次:取消urb，保持端点指针不变。 */
 		for (i = skip_ep0; i < 16; ++i) {
 			usb_disable_endpoint(dev, i, false);
 			usb_disable_endpoint(dev, i + USB_DIR_IN, false);
 		}
-		/* Remove endpoints from the host controller internal state */
+		/* 从主控制器内部状态移除端点 */
 		mutex_lock(hcd->bandwidth_mutex);
 		usb_hcd_alloc_bandwidth(dev, NULL, NULL, NULL);
 		mutex_unlock(hcd->bandwidth_mutex);
-		/* Second pass: remove endpoint pointers */
+		/* 第二步:删除端点指针 */
 	}
 	for (i = skip_ep0; i < 16; ++i) {
 		usb_disable_endpoint(dev, i, true);
@@ -1224,7 +1241,7 @@ void usb_enable_endpoint(struct usb_device *dev, struct usb_host_endpoint *ep,
 {
 	int epnum = usb_endpoint_num(&ep->desc);
 	int is_out = usb_endpoint_dir_out(&ep->desc);
-	int is_control = usb_endpoint_xfer_control(&ep->desc);
+	int is_control = usb_endpoint_xfer_control(&ep->desc);//控制端点？
 
 	if (reset_ep)
 		usb_hcd_reset_endpoint(dev, ep);
@@ -1243,6 +1260,7 @@ void usb_enable_endpoint(struct usb_device *dev, struct usb_host_endpoint *ep,
  *
  * Enables all the endpoints for the interface's current altsetting.
  */
+/*使能该接口设置的所有端点*/
 void usb_enable_interface(struct usb_device *dev,
 		struct usb_interface *intf, bool reset_eps)
 {
@@ -1697,11 +1715,15 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 	struct usb_interface **new_interfaces = NULL;
 	struct usb_hcd *hcd = bus_to_hcd(dev->bus);
 	int n, nintf;
-
+	/*根据usb_choose_configuration的返回值找到了合适的配置之后configuration值就为那个配置的bConfigurationValue*/
 	if (dev->authorized == 0 || configuration == -1)
-		configuration = 0;
+		configuration = 0;/*这里协议定义SET_CONFIGURATION请求时候这个值必须为0或者为配置的bConfigurationValue
+							如果为0的话 在SET_CONFIGURATION请求后 仍然保持Address状态
+							设置为0是为了满足SET_CONFIGURATION请求的要求
+							*/
 	else {
 		for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
+			/*检测当前配置数量下选择的配置和上面拿到的配置一样不*/
 			if (dev->config[i].desc.bConfigurationValue ==
 					configuration) {
 				cp = &dev->config[i];
@@ -1709,7 +1731,7 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 			}
 		}
 	}
-	if ((!cp && configuration != 0))
+	if ((!cp && configuration != 0))//如果拿到了相应配置内容 但是检测设备有问题 就报告异常情况
 		return -EINVAL;
 
 	/* The USB spec says configuration 0 means unconfigured.
@@ -1723,15 +1745,17 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 	/* Allocate memory for new interfaces before doing anything else,
 	 * so that if we run out then nothing will have changed. */
 	n = nintf = 0;
+	/*申请内存*/
 	if (cp) {
 		nintf = cp->desc.bNumInterfaces;
+		/*先分配指针数组的内存*/
 		new_interfaces = kmalloc(nintf * sizeof(*new_interfaces),
 				GFP_NOIO);
 		if (!new_interfaces) {
 			dev_err(&dev->dev, "Out of memory\n");
 			return -ENOMEM;
 		}
-
+		/*分配每一项的内存*/
 		for (; n < nintf; ++n) {
 			new_interfaces[n] = kzalloc(
 					sizeof(struct usb_interface),
@@ -1758,11 +1782,11 @@ free_interfaces:
 	ret = usb_autoresume_device(dev);
 	if (ret)
 		goto free_interfaces;
-
+	/**/
 	/* if it's already configured, clear out old state first.
 	 * getting rid of old interfaces means unbinding their drivers.
 	 */
-	if (dev->state != USB_STATE_ADDRESS)
+	if (dev->state != USB_STATE_ADDRESS)//如果已经从ADDRESS状态变成CONFIGURED状态了
 		usb_disable_device(dev, 1);	/* Skip ep0 */
 
 	/* Get rid of pending async Set-Config requests for this device */
@@ -1798,6 +1822,7 @@ free_interfaces:
 	 * Initialize the new interface structures and the
 	 * hc/hcd/usbcore interface/endpoint state.
 	 */
+	/*对配置里的每个接口做处理*/
 	for (i = 0; i < nintf; ++i) {
 		struct usb_interface_cache *intfc;
 		struct usb_interface *intf;
@@ -1808,7 +1833,11 @@ free_interfaces:
 		intf->altsetting = intfc->altsetting;
 		intf->num_altsetting = intfc->num_altsetting;
 		kref_get(&intfc->ref);
-
+		/*获得这个接口0的设置，
+		很多厂商问题，导致interface数组不一定是按照接口号的顺序存储的
+		接口里的altsetting数组也不一定是按设置编号顺序来存储的
+		usb_altnum_to_altsetting函数就是获取该编号的altsetting
+		*/
 		alt = usb_altnum_to_altsetting(intf, 0);
 
 		/* No altsetting 0?  We'll assume the first altsetting.
@@ -1821,7 +1850,7 @@ free_interfaces:
 
 		intf->intf_assoc =
 			find_iad(dev, cp, alt->desc.bInterfaceNumber);
-		intf->cur_altsetting = alt;
+		intf->cur_altsetting = alt;//指定刚刚拿到的设置是当前使用的设置
 		usb_enable_interface(dev, intf, true);
 		intf->dev.parent = &dev->dev;
 		intf->dev.driver = NULL;
@@ -1833,6 +1862,7 @@ free_interfaces:
 		intf->minor = -1;
 		device_initialize(&intf->dev);
 		pm_runtime_no_callbacks(&intf->dev);
+		/*设置设备名字*/
 		dev_set_name(&intf->dev, "%d-%s:%d.%d",
 			dev->bus->busnum, dev->devpath,
 			configuration, alt->desc.bInterfaceNumber);
@@ -1840,6 +1870,7 @@ free_interfaces:
 	}
 	kfree(new_interfaces);
 
+	/*主机发送SET_CONFIGURATION请求*/
 	ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
 			      USB_REQ_SET_CONFIGURATION, 0, configuration, 0,
 			      NULL, 0, USB_CTRL_SET_TIMEOUT);
@@ -1856,7 +1887,7 @@ free_interfaces:
 		}
 		cp = NULL;
 	}
-
+	/*将激活的配置给到dev->actconfig*/
 	dev->actconfig = cp;
 	mutex_unlock(hcd->bandwidth_mutex);
 
@@ -1867,7 +1898,7 @@ free_interfaces:
 		usb_autosuspend_device(dev);
 		return ret;
 	}
-	usb_set_device_state(dev, USB_STATE_CONFIGURED);
+	usb_set_device_state(dev, USB_STATE_CONFIGURED);//状态成功从Address变成Cdonfigured
 
 	if (cp->string == NULL &&
 			!(dev->quirks & USB_QUIRK_CONFIG_INTF_STRINGS))
@@ -1884,6 +1915,12 @@ free_interfaces:
 	 * claim() any interfaces not yet bound.  Many class drivers
 	 * need that: CDC, audio, video, etc.
 	 */
+	/*
+		这个for循环将前面那个for循环准备好的每个接口送给设备模型，
+		Linux会设备模型会根据bus_type去将接口添加到对应的设备链表中
+		然后去轮询USB总线的另外一条有名的驱动链表
+		针对每个找到驱动的去调用usb总线的match函数
+	*/
 	for (i = 0; i < nintf; ++i) {
 		struct usb_interface *intf = cp->interface[i];
 

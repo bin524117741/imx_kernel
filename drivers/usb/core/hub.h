@@ -66,13 +66,13 @@ struct usb_hub {
 #endif
 
 	unsigned		limited_power:1;
-	unsigned		quiescing:1;
+	unsigned		quiescing:1;//停止 一旦设置为1 hub不会再提交任何urb申请
 	unsigned		disconnected:1;
 	unsigned		in_reset:1;
 
 	unsigned		quirk_check_port_auto_suspend:1;
 
-	unsigned		has_indicators:1;
+	unsigned		has_indicators:1;//hub指示灯 1 为支持
 	u8			indicator[USB_MAXCHILDREN];
 	struct delayed_work	leds;
 	struct delayed_work	init_work;

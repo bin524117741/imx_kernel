@@ -61,7 +61,7 @@ int hcd_buffer_create(struct usb_hcd *hcd)
 {
 	char		name[16];
 	int		i, size;
-
+	/*先判断是否支持DMA*/
 	if (!hcd->self.controller->dma_mask &&
 	    !(hcd->driver->flags & HCD_LOCAL_MEM))
 		return 0;
@@ -74,7 +74,7 @@ int hcd_buffer_create(struct usb_hcd *hcd)
 		hcd->pool[i] = dma_pool_create(name, hcd->self.controller,
 				size, size, 0);
 		if (!hcd->pool[i]) {
-			hcd_buffer_destroy(hcd);
+			hcd_buffer_destroy(hcd);//创建DMA成功的话就把普通BUFFER销毁
 			return -ENOMEM;
 		}
 	}
