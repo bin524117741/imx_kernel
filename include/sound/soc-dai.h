@@ -130,6 +130,7 @@ struct snd_soc_dai_ops {
 	 * DAI clocking configuration, all optional.
 	 * Called by soc_card drivers, normally in their hw_params.
 	 */
+	//设置 Codec DAI 时钟相关参数
 	int (*set_sysclk)(struct snd_soc_dai *dai,
 		int clk_id, unsigned int freq, int dir);
 	int (*set_pll)(struct snd_soc_dai *dai, int pll_id, int source,
@@ -141,6 +142,7 @@ struct snd_soc_dai_ops {
 	 * DAI format configuration
 	 * Called by soc_card drivers, normally in their hw_params.
 	 */
+	//设置 Codec DAI 的信号格式配置
 	int (*set_fmt)(struct snd_soc_dai *dai, unsigned int fmt);
 	int (*xlate_tdm_slot_mask)(unsigned int slots,
 		unsigned int *tx_mask, unsigned int *rx_mask);
@@ -156,6 +158,7 @@ struct snd_soc_dai_ops {
 	 * DAI digital mute - optional.
 	 * Called by soc-core to minimise any pops.
 	 */
+	//设置 Codec DAI 的静音操作函数
 	int (*digital_mute)(struct snd_soc_dai *dai, int mute);
 	int (*mute_stream)(struct snd_soc_dai *dai, int mute, int stream);
 
@@ -163,6 +166,7 @@ struct snd_soc_dai_ops {
 	 * ALSA PCM audio operations - all optional.
 	 * Called by soc-core during audio PCM operations.
 	 */
+	//设置PCM 相关控制的操作方法，包手中 硬件参数设定
 	int (*startup)(struct snd_pcm_substream *,
 		struct snd_soc_dai *);
 	void (*shutdown)(struct snd_pcm_substream *,
@@ -204,11 +208,12 @@ struct snd_soc_dai_ops {
  */
 struct snd_soc_dai_driver {
 	/* DAI description */
-	const char *name;
-	unsigned int id;
+	const char *name;// Codec DAI 的名字
+	unsigned int id;// Codec DAI 的 ID
 	unsigned int base;
 
 	/* DAI driver callbacks */
+	// 当 snd_soc_codec_drive 和 codec device匹配后 Codec DAI 的回调函数
 	int (*probe)(struct snd_soc_dai *dai);
 	int (*remove)(struct snd_soc_dai *dai);
 	int (*suspend)(struct snd_soc_dai *dai);
@@ -219,7 +224,7 @@ struct snd_soc_dai_driver {
 	bool bus_control;
 
 	/* ops */
-	const struct snd_soc_dai_ops *ops;
+	const struct snd_soc_dai_ops *ops;// codec 字符设备结构体，用于配置 Codec 相关的参数
 
 	/* DAI capabilities */
 	struct snd_soc_pcm_stream capture;
@@ -229,8 +234,8 @@ struct snd_soc_dai_driver {
 	unsigned int symmetric_samplebits:1;
 
 	/* probe ordering - for components with runtime dependencies */
-	int probe_order;
-	int remove_order;
+	int probe_order;// probe 的顺序
+	int remove_order;// remove 的顺序
 };
 
 /*
@@ -239,37 +244,37 @@ struct snd_soc_dai_driver {
  * Holds runtime data for a DAI.
  */
 struct snd_soc_dai {
-	const char *name;
-	int id;
+	const char *name;// Codec DAI 的名字
+	int id;// Codec DAI 的 ID
 	struct device *dev;
 
 	/* driver ops */
-	struct snd_soc_dai_driver *driver;
+	struct snd_soc_dai_driver *driver;// Codec 驱动的核心结构体
 
 	/* DAI runtime info */
-	unsigned int capture_active:1;		/* stream is in use */
-	unsigned int playback_active:1;		/* stream is in use */
+	unsigned int capture_active:1;		/* 是否允许Capture，默认为1, stream is in use */
+	unsigned int playback_active:1;		/* 是否允许playback，默认为1, stream is in use */
 	unsigned int symmetric_rates:1;
 	unsigned int symmetric_channels:1;
 	unsigned int symmetric_samplebits:1;
 	unsigned int active;
-	unsigned char probed:1;
+	unsigned char probed:1;// 是否已经 probe 过
 
-	struct snd_soc_dapm_widget *playback_widget;
-	struct snd_soc_dapm_widget *capture_widget;
+	struct snd_soc_dapm_widget *playback_widget;//播放的kcontrol
+	struct snd_soc_dapm_widget *capture_widget;//录音的kcontrol
 
 	/* DAI DMA data */
-	void *playback_dma_data;
-	void *capture_dma_data;
+	void *playback_dma_data;//播放时的dma buffer 地址
+	void *capture_dma_data;//录音时的dma buffer 地址
 
 	/* Symmetry data - only valid if symmetry is being enforced */
-	unsigned int rate;
-	unsigned int channels;
-	unsigned int sample_bits;
+	unsigned int rate;// 硬件 采样率
+	unsigned int channels;// 硬件 声道数
+	unsigned int sample_bits;// 硬件 声道数
 
 	/* parent platform/codec */
-	struct snd_soc_codec *codec;
-	struct snd_soc_component *component;
+	struct snd_soc_codec *codec;// 所属的 codec 
+	struct snd_soc_component *component;// 所属的 控件
 
 	/* CODEC TDM slot masks and params (for fixup) */
 	unsigned int tx_mask;

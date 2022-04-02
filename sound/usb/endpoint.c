@@ -197,9 +197,9 @@ static void prepare_outbound_urb(struct snd_usb_endpoint *ep,
 
 	switch (ep->type) {
 	case SND_USB_ENDPOINT_TYPE_DATA:
-		if (ep->prepare_data_urb) {
+		if (ep->prepare_data_urb) {//启动之后，给ep->prepare_data_urb赋值之后，才准备真正的数据
 			ep->prepare_data_urb(ep->data_subs, urb);
-		} else {
+		} else {//这里是准备阶段，只是发送静音数据
 			/* no data provider, so send silence */
 			unsigned int offs = 0;
 			for (i = 0; i < ctx->packets; ++i) {
@@ -359,8 +359,8 @@ static void snd_complete_urb(struct urb *urb)
 		     ep->chip->shutdown))		/* device disconnected */
 		goto exit_clear;
 
-	if (usb_pipeout(ep->pipe)) {
-		retire_outbound_urb(ep, ctx);
+	if (usb_pipeout(ep->pipe)) {//如果是输出通道，这里是处理播放的情况
+		retire_outbound_urb(ep, ctx);//调用retire_playback_urb，数据播放完成后进行处理，降低延迟
 		/* can be stopped during retire callback */
 		if (unlikely(!test_bit(EP_FLAG_RUNNING, &ep->flags)))
 			goto exit_clear;
@@ -374,17 +374,18 @@ static void snd_complete_urb(struct urb *urb)
 			goto exit_clear;
 		}
 
-		prepare_outbound_urb(ep, ctx);
-	} else {
-		retire_inbound_urb(ep, ctx);
+		prepare_outbound_urb(ep, ctx);//准备一个播放urb提交到总线。
+	} else {//如果是输入通道，这里是处理录音的情况
+		retire_inbound_urb(ep, ctx);/*如果是同步端点，使用snd_usb_handle_sync_urb解析usb同步包;
+										如果不是，使用retire_capture_urb，双缓存避免溢出*/
 		/* can be stopped during retire callback */
 		if (unlikely(!test_bit(EP_FLAG_RUNNING, &ep->flags)))
 			goto exit_clear;
 
-		prepare_inbound_urb(ep, ctx);
+		prepare_inbound_urb(ep, ctx);//准备一个录音或同步urb以提交到总线
 	}
 
-	err = usb_submit_urb(urb, GFP_ATOMIC);
+	err = usb_submit_urb(urb, GFP_ATOMIC);//提交urb
 	if (err == 0)
 		return;
 
@@ -699,7 +700,7 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 				MAX_QUEUE * packs_per_ms / urb_packs);
 		ep->nurbs = min(max_urbs, urbs_per_period * periods_per_buffer);
 	}
-
+	/*等时传输无初始化函数，所以手动初始化*/
 	/* allocate and initialize data urbs */
 	for (i = 0; i < ep->nurbs; i++) {
 		struct snd_urb_ctx *u = &ep->urb[i];
@@ -710,7 +711,7 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 
 		if (fmt->fmt_type == UAC_FORMAT_TYPE_II)
 			u->packets++; /* for transfer delimiter */
-		u->urb = usb_alloc_urb(u->packets, GFP_KERNEL);
+		u->urb = usb_alloc_urb(u->packets, GFP_KERNEL);//分配URB
 		if (!u->urb)
 			goto out_of_memory;
 
@@ -723,7 +724,7 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 		u->urb->transfer_flags = URB_NO_TRANSFER_DMA_MAP;
 		u->urb->interval = 1 << ep->datainterval;
 		u->urb->context = u;
-		u->urb->complete = snd_complete_urb;
+		u->urb->complete = snd_complete_urb;//传输完成后调用
 		INIT_LIST_HEAD(&u->ready_list);
 	}
 
@@ -832,10 +833,10 @@ int snd_usb_endpoint_set_params(struct snd_usb_endpoint *ep,
 	case  SND_USB_ENDPOINT_TYPE_DATA:
 		err = data_ep_set_params(ep, pcm_format, channels,
 					 period_bytes, period_frames,
-					 buffer_periods, fmt, sync_ep);
+					 buffer_periods, fmt, sync_ep);//如果是数据端点，使用data_ep_set_params
 		break;
 	case  SND_USB_ENDPOINT_TYPE_SYNC:
-		err = sync_ep_set_params(ep);
+		err = sync_ep_set_params(ep);//如果是同步端点，data_ep_set_params
 		break;
 	default:
 		err = -EINVAL;
@@ -894,7 +895,7 @@ int snd_usb_endpoint_start(struct snd_usb_endpoint *ep, bool can_sleep)
 	 */
 
 	set_bit(EP_FLAG_RUNNING, &ep->flags);
-
+	//如果这个端点有一个数据端点是作为隐含的反馈源，不在这里启动urb.
 	if (snd_usb_endpoint_implicit_feedback_sink(ep)) {
 		for (i = 0; i < ep->nurbs; i++) {
 			struct snd_urb_ctx *ctx = ep->urb + i;
@@ -909,13 +910,14 @@ int snd_usb_endpoint_start(struct snd_usb_endpoint *ep, bool can_sleep)
 
 		if (snd_BUG_ON(!urb))
 			goto __error;
-
+		
 		if (usb_pipeout(ep->pipe)) {
+			//调用prepare_playback_urb准备urb，主要是缓冲区的操作
 			prepare_outbound_urb(ep, urb->context);
 		} else {
 			prepare_inbound_urb(ep, urb->context);
 		}
-
+		//提交URB，成功后会调用snd_complete_urb
 		err = usb_submit_urb(urb, GFP_ATOMIC);
 		if (err < 0) {
 			usb_audio_err(ep->chip,

@@ -57,16 +57,17 @@ int snd_device_new(struct snd_card *card, enum snd_device_type type,
 	dev->type = type;
 	dev->state = SNDRV_DEV_BUILD;
 	dev->device_data = device_data;
-	dev->ops = ops;
+	dev->ops = ops;//拿到声卡逻辑设备的设备操作结构体
 
 	/* insert the entry in an incrementally sorted list */
+	//将该设备逻辑设备加入声卡结构体devices链表中(该声卡下逻辑设备比如control、pcm等),dev->list加入card->devies
 	list_for_each_prev(p, &card->devices) {
-		struct snd_device *pdev = list_entry(p, struct snd_device, list);
-		if ((unsigned int)pdev->type <= (unsigned int)type)
+		struct snd_device *pdev = list_entry(p, struct snd_device, list);//获取声卡逻辑设备结构体
+		if ((unsigned int)pdev->type <= (unsigned int)type)//判断该逻辑设备的类型，常用的control或者pcm
 			break;
 	}
 
-	list_add(&dev->list, p);
+	list_add(&dev->list, p);//在链表p的前面加入链表dev->list
 	return 0;
 }
 EXPORT_SYMBOL(snd_device_new);

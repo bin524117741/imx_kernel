@@ -1563,6 +1563,7 @@ static int snd_soc_instantiate_card(struct snd_soc_card *card)
 
 	/* bind DAIs */
 	for (i = 0; i < card->num_links; i++) {
+		//将 codec_dai 和cpu——dai绑定到 card->rtd上面
 		ret = soc_bind_dai_link(card, i);
 		if (ret != 0)
 			goto base_error;
@@ -1575,7 +1576,7 @@ static int snd_soc_instantiate_card(struct snd_soc_card *card)
 			goto base_error;
 	}
 
-	/* initialize the register cache for each available codec */
+	/* 为每个可用的编解码器初始化寄存器缓存*/
 	list_for_each_entry(codec, &codec_list, list) {
 		if (codec->cache_init)
 			continue;
@@ -1643,7 +1644,7 @@ static int snd_soc_instantiate_card(struct snd_soc_card *card)
 	for (order = SND_SOC_COMP_ORDER_FIRST; order <= SND_SOC_COMP_ORDER_LAST;
 			order++) {
 		for (i = 0; i < card->num_links; i++) {
-			ret = soc_probe_link_dais(card, i, order);
+			ret = soc_probe_link_dais(card, i, order);//创建了PCM
 			if (ret < 0) {
 				dev_err(card->dev,
 					"ASoC: failed to instantiate card %d\n",
@@ -2358,6 +2359,7 @@ int snd_soc_register_card(struct snd_soc_card *card)
 			 * Codec must be specified by 1 of name or OF node,
 			 * not both or neither.
 			 */
+			/*只能赋值一个*/
 			if (!!link->codecs[j].name ==
 			    !!link->codecs[j].of_node) {
 				dev_err(card->dev, "ASoC: Neither/both codec name/of_node are set for %s\n",
@@ -2782,14 +2784,16 @@ int snd_soc_register_component(struct device *dev,
 		dev_err(dev, "ASoC: Failed to allocate memory\n");
 		return -ENOMEM;
 	}
-
+	//初始化cmpnt，并把cmpnt_drv和dev赋值到cmpn
 	ret = snd_soc_component_initialize(cmpnt, cmpnt_drv, dev);
 	if (ret)
 		goto err_free;
 
 	cmpnt->ignore_pmdown_time = true;
 	cmpnt->registered_as_component = true;
-
+	//1.初始化snd_soc_component，并赋值,
+	//2.dai_drv(也就是fsl_sai_dai) 执行for循环逐一取出snd_soc_dai_driver结构体
+	//创建新的snd_soc_dai 并且添加到component->dai_list
 	ret = snd_soc_register_dais(cmpnt, dai_drv, num_dai, true);
 	if (ret < 0) {
 		dev_err(dev, "ASoC: Failed to register DAIs: %d\n", ret);
@@ -3039,7 +3043,7 @@ static int snd_soc_codec_set_bias_level(struct snd_soc_dapm_context *dapm,
 }
 
 /**
- * snd_soc_register_codec - Register a codec with the ASoC core
+ * 向ASoC核心注册一个CODEC
  *
  * @codec: codec to register
  */

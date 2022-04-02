@@ -683,6 +683,7 @@ struct snd_soc_jack {
 };
 
 /* SoC PCM stream information */
+/*配置具体的软件参数，如 传输速率，通道数，格式等。*/
 struct snd_soc_pcm_stream {
 	const char *stream_name;
 	u64 formats;			/* SNDRV_PCM_FMTBIT_* */
@@ -803,7 +804,7 @@ struct snd_soc_component {
 /* SoC Audio Codec device */
 struct snd_soc_codec {
 	struct device *dev;
-	const struct snd_soc_codec_driver *driver;
+	const struct snd_soc_codec_driver *driver;// 对应的codec driver 结构体
 
 	struct list_head list;
 	struct list_head card_list;
@@ -939,10 +940,10 @@ struct snd_soc_dai_link {
 	 * You MUST specify the link's codec, either by device name, or by
 	 * DT/OF node, but not both.
 	 */
-	const char *codec_name;
-	struct device_node *codec_of_node;
+	const char *codec_name;// codec 名字
+	struct device_node *codec_of_node;// codec 节点
 	/* You MUST specify the DAI name within the codec */
-	const char *codec_dai_name;
+	const char *codec_dai_name;// codec dai 的名字
 
 	struct snd_soc_dai_link_component *codecs;
 	unsigned int num_codecs;
@@ -952,8 +953,8 @@ struct snd_soc_dai_link {
 	 * device name, or by DT/OF node, but not both. Some forms of link
 	 * do not need a platform.
 	 */
-	const char *platform_name;
-	struct device_node *platform_of_node;
+	const char *platform_name;// platform 的名字
+	struct device_node *platform_of_node;// platform 的dts 节点
 	int be_id;	/* optional ID for machine driver BE identification */
 
 	const struct snd_soc_pcm_stream *params;
@@ -1034,12 +1035,12 @@ struct snd_soc_aux_dev {
 
 /* SoC card */
 struct snd_soc_card {
-	const char *name;
+	const char *name;// 声卡 名字
 	const char *long_name;
-	const char *driver_name;
+	const char *driver_name;// 声卡驱动 名字
 	struct device *dev;
-	struct snd_card *snd_card;
-	struct module *owner;
+	struct snd_card *snd_card;// 绑定 snd_card 声卡结构体
+	struct module *owner;// 驱动模块
 
 	struct mutex mutex;
 	struct mutex dapm_mutex;
@@ -1066,13 +1067,13 @@ struct snd_soc_card {
 				   enum snd_soc_bias_level level);
 
 	long pmdown_time;
-
+	// 绑定的 snd_soc_dai_link 结构休 
 	/* CPU <--> Codec DAI links  */
 	struct snd_soc_dai_link *dai_link;
 	int num_links;
 	struct snd_soc_pcm_runtime *rtd;
 	int num_rtd;
-
+	// Codec 配置结构体 struct snd_soc_codec_conf 
 	/* optional codec specific configuration */
 	struct snd_soc_codec_conf *codec_conf;
 	int num_configs;
@@ -1085,7 +1086,7 @@ struct snd_soc_card {
 	int num_aux_devs;
 	struct snd_soc_pcm_runtime *rtd_aux;
 	int num_aux_rtd;
-
+	// codec 的 snd_kcontrol_new  结构体
 	const struct snd_kcontrol_new *controls;
 	int num_controls;
 
@@ -1093,8 +1094,10 @@ struct snd_soc_card {
 	 * Card-specific routes and widgets.
 	 * Note: of_dapm_xxx for Device Tree; Otherwise for driver build-in.
 	 */
+	// codec dapm 控件结构体 struct snd_soc_dapm_widget
 	const struct snd_soc_dapm_widget *dapm_widgets;
 	int num_dapm_widgets;
+	// codec dapm 回路结构体 struct snd_soc_dapm_route
 	const struct snd_soc_dapm_route *dapm_routes;
 	int num_dapm_routes;
 	const struct snd_soc_dapm_widget *of_dapm_widgets;
@@ -1114,6 +1117,7 @@ struct snd_soc_card {
 	struct list_head dapm_dirty;
 
 	/* Generic DAPM context for the card */
+	// 声卡的 DAPM 信息  struct snd_soc_dapm_context
 	struct snd_soc_dapm_context dapm;
 	struct snd_soc_dapm_stats dapm_stats;
 	struct snd_soc_dapm_update *update;

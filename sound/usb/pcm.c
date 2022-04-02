@@ -646,6 +646,7 @@ static int configure_sync_endpoint(struct snd_usb_substream *subs)
  *
  * called  during initial setup and upon resume
  */
+/*数据端点用于发送音频数据，同步端点用于接收设备端的反馈。*/
 static int configure_endpoint(struct snd_usb_substream *subs)
 {
 	int ret;
@@ -692,14 +693,14 @@ static int snd_usb_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0)
 		return ret;
 
-	subs->pcm_format = params_format(hw_params);
-	subs->period_bytes = params_period_bytes(hw_params);
-	subs->period_frames = params_period_size(hw_params);
+	subs->pcm_format = params_format(hw_params);//格式
+	subs->period_bytes = params_period_bytes(hw_params);//周期
+	subs->period_frames = params_period_size(hw_params);//
 	subs->buffer_periods = params_periods(hw_params);
 	subs->channels = params_channels(hw_params);
 	subs->cur_rate = params_rate(hw_params);
 
-	fmt = find_format(subs);
+	fmt = find_format(subs);//从snd_usb_substream找到对应的格式，找不到就报错
 	if (!fmt) {
 		dev_dbg(&subs->dev->dev,
 			"cannot set format: format = %#x, rate = %d, channels = %d\n",
@@ -711,7 +712,7 @@ static int snd_usb_hw_params(struct snd_pcm_substream *substream,
 	if (subs->stream->chip->shutdown)
 		ret = -ENODEV;
 	else
-		ret = set_format(subs, fmt);
+		ret = set_format(subs, fmt);//找到匹配的格式并设置接口,里面会设置同步端点，也就是这是同步传输
 	up_read(&subs->stream->chip->shutdown_rwsem);
 	if (ret < 0)
 		return ret;
@@ -776,7 +777,7 @@ static int snd_usb_pcm_prepare(struct snd_pcm_substream *substream)
 	snd_usb_endpoint_sync_pending_stop(subs->sync_endpoint);
 	snd_usb_endpoint_sync_pending_stop(subs->data_endpoint);
 
-	ret = set_format(subs, subs->cur_audiofmt);
+	ret = set_format(subs, subs->cur_audiofmt);//设置格式
 	if (ret < 0)
 		goto unlock;
 
@@ -786,12 +787,12 @@ static int snd_usb_pcm_prepare(struct snd_pcm_substream *substream)
 				       subs->cur_audiofmt->iface,
 				       alts,
 				       subs->cur_audiofmt,
-				       subs->cur_rate);
+				       subs->cur_rate);//初始化采样率
 	if (ret < 0)
 		goto unlock;
 
 	if (subs->need_setup_ep) {
-		ret = configure_endpoint(subs);
+		ret = configure_endpoint(subs);//设置端点，报错数据和同步端点
 		if (ret < 0)
 			goto unlock;
 		subs->need_setup_ep = false;
@@ -1208,7 +1209,7 @@ static int snd_usb_pcm_open(struct snd_pcm_substream *substream, int direction)
 	subs->dsd_dop.channel = 0;
 	subs->dsd_dop.marker = 1;
 
-	return setup_hw_info(runtime, subs);
+	return setup_hw_info(runtime, subs);//设置运行时硬件信息,比如采样率，通道等
 }
 
 static int snd_usb_pcm_close(struct snd_pcm_substream *substream, int direction)
@@ -1558,13 +1559,13 @@ static int snd_usb_substream_playback_trigger(struct snd_pcm_substream *substrea
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
-		subs->trigger_tstamp_pending_update = true;
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		subs->trigger_tstamp_pending_update = true;//启动只更新标志位
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE://注意，前面的case没有return语句，所以会下来执行这个
 		subs->data_endpoint->prepare_data_urb = prepare_playback_urb;
 		subs->data_endpoint->retire_data_urb = retire_playback_urb;
 		subs->running = 1;
 		return 0;
-	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_STOP://停止
 		stop_endpoints(subs, false);
 		subs->running = 0;
 		return 0;

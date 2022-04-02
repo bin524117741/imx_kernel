@@ -310,7 +310,9 @@ void usb_detect_quirks(struct usb_device *udev)
 		udev->persist_enabled = 1;
 #endif	/* CONFIG_USB_DEFAULT_PERSIST */
 }
-
+/*
+	USB黑名单
+*/
 void usb_detect_interface_quirks(struct usb_device *udev)
 {
 	u32 quirks;

@@ -127,32 +127,32 @@ static int usb_mouse_probe(struct usb_interface *intf, const struct usb_device_i
 	int error = -ENOMEM;
 
 	interface = intf->cur_altsetting;
-
+	/*USB鼠标只有一个控制端点*/
 	if (interface->desc.bNumEndpoints != 1)
 		return -ENODEV;
-
+	/*获取一个端点描述符*/
 	endpoint = &interface->endpoint[0].desc;
 	if (!usb_endpoint_is_int_in(endpoint))
 		return -ENODEV;
 
 	pipe = usb_rcvintpipe(dev, endpoint->bEndpointAddress);
-	maxp = usb_maxpacket(dev, pipe, usb_pipeout(pipe));
+	maxp = usb_maxpacket(dev, pipe, usb_pipeout(pipe));//获取通信最大字节数
 
 	mouse = kzalloc(sizeof(struct usb_mouse), GFP_KERNEL);
 	input_dev = input_allocate_device();
 	if (!mouse || !input_dev)
 		goto fail1;
-
+	//为mouse的data 分配8个字节的空间
 	mouse->data = usb_alloc_coherent(dev, 8, GFP_ATOMIC, &mouse->data_dma);
 	if (!mouse->data)
 		goto fail1;
 
-	mouse->irq = usb_alloc_urb(0, GFP_KERNEL);
+	mouse->irq = usb_alloc_urb(0, GFP_KERNEL);//申请一个urb
 	if (!mouse->irq)
 		goto fail2;
-
-	mouse->usbdev = dev;
-	mouse->dev = input_dev;
+	/**/
+	mouse->usbdev = dev;//设置usb鼠标设备的usb设备对象
+	mouse->dev = input_dev;//设备usb鼠标设备的input设备对象
 
 	if (dev->manufacturer)
 		strlcpy(mouse->name, dev->manufacturer, sizeof(mouse->name));
@@ -168,15 +168,15 @@ static int usb_mouse_probe(struct usb_interface *intf, const struct usb_device_i
 			 "USB HIDBP Mouse %04x:%04x",
 			 le16_to_cpu(dev->descriptor.idVendor),
 			 le16_to_cpu(dev->descriptor.idProduct));
-
+	//设置设备路径名
 	usb_make_path(dev, mouse->phys, sizeof(mouse->phys));
 	strlcat(mouse->phys, "/input0", sizeof(mouse->phys));
 
-	input_dev->name = mouse->name;
-	input_dev->phys = mouse->phys;
-	usb_to_input_id(dev, &input_dev->id);
-	input_dev->dev.parent = &intf->dev;
-
+	input_dev->name = mouse->name;//输入设备的名字设置成usb鼠标的名字
+	input_dev->phys = mouse->phys;//输入设备的路径设置成usb鼠标的路径
+	usb_to_input_id(dev, &input_dev->id);//设置输入设备的bustype,vendor,product,version
+	input_dev->dev.parent = &intf->dev;//usb接口设备为输入设备的父设备
+	/*设置事件*/
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_REL);
 	input_dev->keybit[BIT_WORD(BTN_MOUSE)] = BIT_MASK(BTN_LEFT) |
 		BIT_MASK(BTN_RIGHT) | BIT_MASK(BTN_MIDDLE);
@@ -185,22 +185,22 @@ static int usb_mouse_probe(struct usb_interface *intf, const struct usb_device_i
 		BIT_MASK(BTN_EXTRA);
 	input_dev->relbit[0] |= BIT_MASK(REL_WHEEL);
 
-	input_set_drvdata(input_dev, mouse);
-
+	input_set_drvdata(input_dev, mouse);//input_dev->dev->driver_data = mouse
+	/*设置输入事件得方法*/
 	input_dev->open = usb_mouse_open;
 	input_dev->close = usb_mouse_close;
-
+	/*初始化 urb (中断传输方式)*/
 	usb_fill_int_urb(mouse->irq, dev, pipe, mouse->data,
 			 (maxp > 8 ? 8 : maxp),
 			 usb_mouse_irq, mouse, endpoint->bInterval);
-	mouse->irq->transfer_dma = mouse->data_dma;
-	mouse->irq->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
+	mouse->irq->transfer_dma = mouse->data_dma;//dma数据缓冲区指向usb鼠标设备的data_dma成员
+	mouse->irq->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;//无dma映射
 
-	error = input_register_device(mouse->dev);
+	error = input_register_device(mouse->dev);//注册input驱动
 	if (error)
 		goto fail3;
 
-	usb_set_intfdata(intf, mouse);
+	usb_set_intfdata(intf, mouse);//intf->dev->driver_data = mouse ;
 	return 0;
 
 fail3:	

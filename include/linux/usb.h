@@ -552,7 +552,7 @@ struct usb_device {
 	enum usb_device_speed	speed;//usb速度
 
 	struct usb_tt	*tt;//各种速度的相互转换
-	int		ttport;
+	int		ttport;//该tt集线器的设备端口
 
 	unsigned int toggle[2];//对应IN OUT两个端点
 
@@ -560,10 +560,10 @@ struct usb_device {
 	struct usb_bus *bus;//设备所在的那条总线
 	struct usb_host_endpoint ep0;//端点0特殊性，在这个对象产生时就要初始化
 
-	struct device dev;
+	struct device dev;//通用的设备接口
 
 	struct usb_device_descriptor descriptor;//设备描述符
-	struct usb_host_bos *bos;
+	struct usb_host_bos *bos;//USB设备BOS描述符设置
 	struct usb_host_config *config;//设备所拥有的配置
 
 	struct usb_host_config *actconfig;//当前配置
@@ -576,12 +576,12 @@ struct usb_device {
 	u8 portnum;//hub端口号 roothub为0
 	u8 level;//第几层
 
-	unsigned can_submit:1;
+	unsigned can_submit:1;//urb可以提交
 	unsigned persist_enabled:1;
 	unsigned have_langid:1;
-	unsigned authorized:1;
-	unsigned authenticated:1;
-	unsigned wusb:1;
+	unsigned authorized:1;//规定我们可以使用它;
+	unsigned authenticated:1;//加密
+	unsigned wusb:1;//设备是无线USB
 	unsigned lpm_capable:1;
 	unsigned usb2_hw_lpm_capable:1;
 	unsigned usb2_hw_lpm_besl_capable:1;
@@ -600,8 +600,8 @@ struct usb_device {
 
 	int maxchild;//hub的端口数
 
-	u32 quirks;
-	atomic_t urbnum;
+	u32 quirks;//这个设备特殊的地方
+	atomic_t urbnum;//整个设备提交的urb数量
 
 	unsigned long active_duration;
 
@@ -1474,8 +1474,7 @@ struct urb {
 	int unlinked;			/* unlink error code */
 
 	/* public: documented fields in the urb that can be used by drivers */
-	struct list_head urb_list;	/* list head for use by the urb's
-					 * current owner */
+	struct list_head urb_list;	/* 供URB的当前所有者使用 */
 	struct list_head anchor_list;	/* the URB may be anchored */
 	struct usb_anchor *anchor;
 	struct usb_device *dev;		/* urb要去的那个设备*/
@@ -1494,8 +1493,8 @@ struct urb {
 		如果有dma 则transfer_flags设置成URB_NO_TRANSFER_DMA_MAP
 		使用transfer_dma，无dma则使用transfer_buffer
 	*/
-	void *transfer_buffer;		/* (in) associated data buffer */
-	dma_addr_t transfer_dma;	/* (in) dma addr for transfer_buffer */
+	void *transfer_buffer;		/* (in) associated data buffer *//*缓冲区*/
+	dma_addr_t transfer_dma;	/* (in) dma addr for transfer_buffer *//*如果使用DMA的缓冲区*/
 	struct scatterlist *sg;		/* (in) scatter gather buffer list */
 	int num_mapped_sgs;		/* (internal) mapped sg entries */
 	int num_sgs;			/* (in) number of entries in the sg list */

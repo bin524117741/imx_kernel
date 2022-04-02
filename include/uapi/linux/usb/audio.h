@@ -145,19 +145,24 @@
 #define UAC_MS_GENERAL			0x01
 
 /* Terminals - 2.1 USB Terminal Types */
-#define UAC_TERMINAL_UNDEFINED		0x100
-#define UAC_TERMINAL_STREAMING		0x101
-#define UAC_TERMINAL_VENDOR_SPEC	0x1FF
+#define UAC_TERMINAL_UNDEFINED		0x100//未定义的USB终端类型
+#define UAC_TERMINAL_STREAMING		0x101//USB流终端
+#define UAC_TERMINAL_VENDOR_SPEC	0x1FF//	厂商自定义的终端类型
 
 /* Terminal Control Selectors */
 /* 4.3.2  Class-Specific AC Interface Descriptor */
 struct uac1_ac_header_descriptor {
-	__u8  bLength;			/* 8 + n */
-	__u8  bDescriptorType;		/* USB_DT_CS_INTERFACE */
-	__u8  bDescriptorSubtype;	/* UAC_MS_HEADER */
+	__u8  bLength;//描述符的大小			/* 8 + n */
+	__u8  bDescriptorType;//	描述符的类型：音频类接口，代码为：0x24		/* USB_DT_CS_INTERFACE */
+	__u8  bDescriptorSubtype;// 描述符子类型，属于音频控制头子类，代码为：0x01	/* UAC_MS_HEADER */
 	__le16 bcdADC;			/* 0x0100 */
+	/*
+		所定义的所有的音频类控制接口描述符的长度总和，
+		包括：该头描述符自身的长度 + 单元描述符长度 + 终端描述符的长度
+		注：这个长度仅仅指的是控制接口（AC）的长度，并不包含控制接口下的流接口（AS）。
+	*/
 	__le16 wTotalLength;		/* includes Unit and Terminal desc. */
-	__u8  bInCollection;		/* n */
+	__u8  bInCollection;//该音频控制接口所拥有的音频流接口总数，也就是n。		/* n */
 	__u8  baInterfaceNr[];		/* [n] */
 } __attribute__ ((packed));
 
@@ -177,27 +182,27 @@ struct uac1_ac_header_descriptor_##n {			\
 
 /* 4.3.2.1 Input Terminal Descriptor */
 struct uac_input_terminal_descriptor {
-	__u8  bLength;			/* in bytes: 12 */
-	__u8  bDescriptorType;		/* CS_INTERFACE descriptor type */
-	__u8  bDescriptorSubtype;	/* INPUT_TERMINAL descriptor subtype */
-	__u8  bTerminalID;		/* Constant uniquely terminal ID */
-	__le16 wTerminalType;		/* USB Audio Terminal Types */
-	__u8  bAssocTerminal;		/* ID of the Output Terminal associated */
-	__u8  bNrChannels;		/* Number of logical output channels */
-	__le16 wChannelConfig;
-	__u8  iChannelNames;
-	__u8  iTerminal;
+	__u8  bLength;			/* 描述符的大小：12 字节*/
+	__u8  bDescriptorType;		/* 描述符的类型：音频类接口，代码为：0x24 */
+	__u8  bDescriptorSubtype;	/* 描述符子类型，属于输入终端描述符子类，代码为：0x02 */
+	__u8  bTerminalID;		/* 该输入终端的编号(ID)，所有跟终端相关的请求（主机发送到终端的请求）都会通过这个值来访问此终端*/
+	__le16 wTerminalType;		/* 输入终端类型 */
+	__u8  bAssocTerminal;		/* 与输入终端相关联的输出终端的ID号。输入输出终端是两个端点，配对的。 */
+	__u8  bNrChannels;		/* 此终端的输出声道簇中所包含的逻辑输出通道数目(逻辑通道数目)。*/
+	__le16 wChannelConfig; /*描述逻辑声道的空间位置*/
+	__u8  iChannelNames;/*描述第一个逻辑声道的字符串的索引号，一般填0。*/
+	__u8  iTerminal;/*描述该输入终端的字符串的索引号，一般填0。*/
 } __attribute__ ((packed));
 
 #define UAC_DT_INPUT_TERMINAL_SIZE			12
-
+/***输入终端类型***/
 /* Terminals - 2.2 Input Terminal Types */
-#define UAC_INPUT_TERMINAL_UNDEFINED			0x200
-#define UAC_INPUT_TERMINAL_MICROPHONE			0x201
-#define UAC_INPUT_TERMINAL_DESKTOP_MICROPHONE		0x202
-#define UAC_INPUT_TERMINAL_PERSONAL_MICROPHONE		0x203
-#define UAC_INPUT_TERMINAL_OMNI_DIR_MICROPHONE		0x204
-#define UAC_INPUT_TERMINAL_MICROPHONE_ARRAY		0x205
+#define UAC_INPUT_TERMINAL_UNDEFINED			0x200//未定义的输入终端类型
+#define UAC_INPUT_TERMINAL_MICROPHONE			0x201//通用麦克风类型
+#define UAC_INPUT_TERMINAL_DESKTOP_MICROPHONE		0x202//桌面麦克风
+#define UAC_INPUT_TERMINAL_PERSONAL_MICROPHONE		0x203//头戴式麦克风
+#define UAC_INPUT_TERMINAL_OMNI_DIR_MICROPHONE		0x204//全向麦克风
+#define UAC_INPUT_TERMINAL_MICROPHONE_ARRAY		0x205//麦克风阵列
 #define UAC_INPUT_TERMINAL_PROC_MICROPHONE_ARRAY	0x206
 
 /* Terminals - control selectors */
@@ -206,26 +211,26 @@ struct uac_input_terminal_descriptor {
 
 /* 4.3.2.2 Output Terminal Descriptor */
 struct uac1_output_terminal_descriptor {
-	__u8  bLength;			/* in bytes: 9 */
-	__u8  bDescriptorType;		/* CS_INTERFACE descriptor type */
-	__u8  bDescriptorSubtype;	/* OUTPUT_TERMINAL descriptor subtype */
-	__u8  bTerminalID;		/* Constant uniquely terminal ID */
-	__le16 wTerminalType;		/* USB Audio Terminal Types */
-	__u8  bAssocTerminal;		/* ID of the Input Terminal associated */
-	__u8  bSourceID;		/* ID of the connected Unit or Terminal*/
-	__u8  iTerminal;
+	__u8  bLength;			/*描述符的大小：9 字节*/
+	__u8  bDescriptorType;		/* 描述符的类型：音频类接口，代码为：0x24 */
+	__u8  bDescriptorSubtype;	/* 描述符子类型，属于输出终端描述符子类，代码为：0x03*/
+	__u8  bTerminalID;		/*该输出终端的编号(ID)，所有跟终端相关的请求（主机发送到终端的请求）都会通过这个值来访问此终端*/
+	__le16 wTerminalType;		/* 输出终端类型 */
+	__u8  bAssocTerminal;		/*与此输出终端相关联的输入终端的ID号 */
+	__u8  bSourceID;		/* 该输出终端的前序连接实体（可以是终端，也可以是单元）的IDl*/
+	__u8  iTerminal;/*	描述该输出终端的字符串的索引号*/
 } __attribute__ ((packed));
 
 #define UAC_DT_OUTPUT_TERMINAL_SIZE			9
 
 /* Terminals - 2.3 Output Terminal Types */
-#define UAC_OUTPUT_TERMINAL_UNDEFINED			0x300
-#define UAC_OUTPUT_TERMINAL_SPEAKER			0x301
-#define UAC_OUTPUT_TERMINAL_HEADPHONES			0x302
-#define UAC_OUTPUT_TERMINAL_HEAD_MOUNTED_DISPLAY_AUDIO	0x303
-#define UAC_OUTPUT_TERMINAL_DESKTOP_SPEAKER		0x304
-#define UAC_OUTPUT_TERMINAL_ROOM_SPEAKER		0x305
-#define UAC_OUTPUT_TERMINAL_COMMUNICATION_SPEAKER	0x306
+#define UAC_OUTPUT_TERMINAL_UNDEFINED			0x300//未定义的输出终端类型
+#define UAC_OUTPUT_TERMINAL_SPEAKER			0x301//通用扬声器
+#define UAC_OUTPUT_TERMINAL_HEADPHONES			0x302//头戴式耳机
+#define UAC_OUTPUT_TERMINAL_HEAD_MOUNTED_DISPLAY_AUDIO	0x303//VR头盔听筒
+#define UAC_OUTPUT_TERMINAL_DESKTOP_SPEAKER		0x304//桌面扬声器
+#define UAC_OUTPUT_TERMINAL_ROOM_SPEAKER		0x305//室内扬声器
+#define UAC_OUTPUT_TERMINAL_COMMUNICATION_SPEAKER	0x306//广播扬声器
 #define UAC_OUTPUT_TERMINAL_LOW_FREQ_EFFECTS_SPEAKER	0x307
 
 /* Set bControlSize = 2 as default setting */
@@ -296,12 +301,12 @@ static inline __u8 uac_mixer_unit_iMixer(struct uac_mixer_unit_descriptor *desc)
 
 /* 4.3.2.4 Selector Unit Descriptor */
 struct uac_selector_unit_descriptor {
-	__u8 bLength;
-	__u8 bDescriptorType;
-	__u8 bDescriptorSubtype;
-	__u8 bUintID;
+	__u8 bLength;/*长度 为6*/
+	__u8 bDescriptorType;/*描述符的类型：音频类接口，代码为：0x24*/
+	__u8 bDescriptorSubtype;/*	描述符子类型，属于特征单元描述符子类，代码为：0x05*/
+	__u8 bUintID;//该特征单元的ID号
 	__u8 bNrInPins;
-	__u8 baSourceID[];
+	__u8 baSourceID[];//该特征单元前序连接的实体ID号；前序连接实体可以是终端也可以是单元。和输出终端里面的bSourceID类似。
 } __attribute__ ((packed));
 
 static inline __u8 uac_selector_unit_iSelector(struct uac_selector_unit_descriptor *desc)
@@ -312,12 +317,41 @@ static inline __u8 uac_selector_unit_iSelector(struct uac_selector_unit_descript
 
 /* 4.3.2.5 Feature Unit Descriptor */
 struct uac_feature_unit_descriptor {
+	/*
+		描述符的大小：7+(要控制的声道数目 *n) 字节
+		要控制的声道数目：主声道肯定要有。
+		所以描述符的大小可以表示成：7 + (ch) * n
+	*/
 	__u8 bLength;
-	__u8 bDescriptorType;
-	__u8 bDescriptorSubtype;
-	__u8 bUnitID;
+	__u8 bDescriptorType;/*	描述符的类型：音频类特征单元，代码为：0x24*/
+	__u8 bDescriptorSubtype;/*描述符子类型，属于特征单元描述符子类，代码为：0x06*/
+	__u8 bUnitID;/*该特征单元的ID号*/
 	__u8 bSourceID;
+	/*
+		bmaControls()数组元素的字节大小：n
+		元素大小用多少个字节来表示。在规范中，规定了10种功能，所以n最大值为2。也就是16位，足以描述这10种功能。
+		所以 n要么取1，要么取2。一般来说，USB音频不会配置太复杂的控制，n取1，即一个字节就可以表示位映射。
+	*/
 	__u8 bControlSize;
+	/*
+		通道0的功能特性位图描述。通道0是主通道。
+		每个通道（包括主通道0和非0的逻辑通道）的控制位映射如下：
+		D0：Mute 静音
+		D1：Volume 音量控制
+		D2：Bass 低音控制
+		D3：Mid中音控制
+		D4：Treble高音控制
+		D5：Graphic Equalizer图形均衡器控制
+		D6：Automatic Gain自动增益控制
+		D7：Delay延迟控制
+		D8：Bass Boost低音增强控制
+		D9：Loudness 响度控制
+		D10：保留，设置为0
+		….. ：保留，设置为0
+		D15：保留，设置为0
+		所以，n要么取1，要么取2。
+		最多取2，两字节，16bit。
+	*/
 	__u8 bmaControls[0]; /* variable length */
 } __attribute__((packed));
 
@@ -399,15 +433,18 @@ static inline __u8 *uac_processing_unit_specific(struct uac_processing_unit_desc
 /* 4.5.2 Class-Specific AS Interface Descriptor */
 struct uac1_as_header_descriptor {
 	__u8  bLength;			/* in bytes: 7 */
-	__u8  bDescriptorType;		/* USB_DT_CS_INTERFACE */
-	__u8  bDescriptorSubtype;	/* AS_GENERAL */
-	__u8  bTerminalLink;		/* Terminal ID of connected Terminal */
-	__u8  bDelay;			/* Delay introduced by the data path */
-	__le16 wFormatTag;		/* The Audio Data Format */
+	__u8  bDescriptorType;		/* 描述符类型，音频类接口，代码：0x24 */
+	__u8  bDescriptorSubtype;	/* 	描述符子类型，代码：0x01 */
+	__u8  bTerminalLink;		/* 如果该音频流接口有音频传输端点，
+									则bTerminalLink代表该传输端点所对应的的终端号，
+									那么这里填入的就是终端的ID。
+									[接口下某个端点与终端的对应] */
+	__u8  bDelay;			/* 数据通路上的延时 */
+	__le16 wFormatTag;		/* 	音频流编码格式*/
 } __attribute__ ((packed));
 
 #define UAC_DT_AS_HEADER_SIZE		7
-
+/*wFormatTag*/
 /* Formats - A.1.1 Audio Data Format Type I Codes */
 #define UAC_FORMAT_TYPE_I_UNDEFINED	0x0
 #define UAC_FORMAT_TYPE_I_PCM		0x1
@@ -432,15 +469,15 @@ struct uac_format_type_i_continuous_descriptor {
 #define UAC_FORMAT_TYPE_I_CONTINUOUS_DESC_SIZE	14
 
 struct uac_format_type_i_discrete_descriptor {
-	__u8  bLength;			/* in bytes: 8 + (ns * 3) */
-	__u8  bDescriptorType;		/* USB_DT_CS_INTERFACE */
-	__u8  bDescriptorSubtype;	/* FORMAT_TYPE */
-	__u8  bFormatType;		/* FORMAT_TYPE_1 */
-	__u8  bNrChannels;		/* physical channels in the stream */
-	__u8  bSubframeSize;		/* */
-	__u8  bBitResolution;
-	__u8  bSamFreqType;
-	__u8  tSamFreq[][3];
+	__u8  bLength;			/* in bytes: 8 + (支持几种采样率 * 3) */
+	__u8  bDescriptorType;		/* 描述符的类型：音频类数据格式描述符，代码：0x24 */
+	__u8  bDescriptorSubtype;	/* 	描述符的子类型：数据格式子类描述符，代码：0x02 FORMAT_TYPE */
+	__u8  bFormatType;		/* 音频流数据格式类型 FORMAT_TYPE_1 */
+	__u8  bNrChannels;		/*该接口声道簇中的物理通道个数*/
+	__u8  bSubframeSize;		/* 该接口的子帧中有几个字节的音频数据*/
+	__u8  bBitResolution;/*位分辨率：接口的子帧中有几位的音频数据是有效的*/
+	__u8  bSamFreqType;/*音频流接口的同步传输端点支持几种采样率（n）*/
+	__u8  tSamFreq[][3];/*同步传输端点所支持的采样率*/
 } __attribute__ ((packed));
 
 #define DECLARE_UAC_FORMAT_TYPE_I_DISCRETE_DESC(n)		\
@@ -515,12 +552,29 @@ struct uac_format_type_ii_ext_descriptor {
 #define UAC_EXT_FORMAT_TYPE_III		0x83
 
 struct uac_iso_endpoint_descriptor {
-	__u8  bLength;			/* in bytes: 7 */
-	__u8  bDescriptorType;		/* USB_DT_CS_ENDPOINT */
-	__u8  bDescriptorSubtype;	/* EP_GENERAL */
+	__u8  bLength;			/* 长度：7 字节 */
+	__u8  bDescriptorType;		/* 描述符类型，音频类传输端点，代码：0x25 */
+	__u8  bDescriptorSubtype;	/* 描述符子类型，属于音频类端点子类描述符，代码：0x01*/
+	/*
+		对应的位设置为1，则说明该端点支持对应的操作
+		D0：是否支持采样率调整
+		D1：是否支持高音调整
+		D6~D2：保留，设为0
+		D7：该端点是否只支持wMaxPacketSize的传输。
+			设置为0，表示可以传输短包（包长小于wMaxPacketSize）；
+			设置为1，则表示只能传输大小为wMaxPacketSize的数据包。
+
+	*/
 	__u8  bmAttributes;
+	/*
+		字段wLockDelay所使用的单位：
+		0：未定义的单位
+		1：毫秒
+		2：解码的PCM采样率
+		其余位保留
+	*/
 	__u8  bLockDelayUnits;
-	__le16 wLockDelay;
+	__le16 wLockDelay;//稳定产生/消耗音频数据前需要等待的时间(ms)。
 } __attribute__((packed));
 #define UAC_ISO_ENDPOINT_DESC_SIZE	7
 

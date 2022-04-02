@@ -779,14 +779,17 @@ static int _snd_pcm_new(struct snd_card *card, const char *id, int device,
 	INIT_LIST_HEAD(&pcm->list);
 	if (id)
 		strlcpy(pcm->id, id, sizeof(pcm->id));
+	//创建playback stream 录音
 	if ((err = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_PLAYBACK, playback_count)) < 0) {
 		snd_pcm_free(pcm);
 		return err;
 	}
+	//创建capture stream 录音
 	if ((err = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_CAPTURE, capture_count)) < 0) {
 		snd_pcm_free(pcm);
 		return err;
 	}
+	//把该pcm挂到声卡中,参数ops中的dev_register字段指向了函数snd_pcm_dev_register,这个回调函数会在声卡的注册阶段被调用
 	if ((err = snd_device_new(card, SNDRV_DEV_PCM, pcm, &ops)) < 0) {
 		snd_pcm_free(pcm);
 		return err;
@@ -1091,14 +1094,14 @@ static int snd_pcm_dev_register(struct snd_device *device)
 		/* register pcm */
 		err = snd_register_device(devtype, pcm->card, pcm->device,
 					  &snd_pcm_f_ops[cidx], pcm,
-					  &pcm->streams[cidx].dev);
+					  &pcm->streams[cidx].dev);//指定pcm设备的文件操作结构体
 		if (err < 0) {
 			list_del_init(&pcm->list);
 			goto unlock;
 		}
 
 		for (substream = pcm->streams[cidx].substream; substream; substream = substream->next)
-			snd_pcm_timer_init(substream);
+			snd_pcm_timer_init(substream);//创建timer
 	}
 
 	list_for_each_entry(notify, &snd_pcm_notify_list, list)

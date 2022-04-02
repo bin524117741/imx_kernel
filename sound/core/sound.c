@@ -151,7 +151,7 @@ static struct snd_minor *autoload_device(unsigned int minor)
 
 static int snd_open(struct inode *inode, struct file *file)
 {
-	unsigned int minor = iminor(inode);
+	unsigned int minor = iminor(inode);//声卡下的次设备
 	struct snd_minor *mptr = NULL;
 	const struct file_operations *new_fops;
 	int err = 0;
@@ -159,7 +159,7 @@ static int snd_open(struct inode *inode, struct file *file)
 	if (minor >= ARRAY_SIZE(snd_minors))
 		return -ENODEV;
 	mutex_lock(&sound_mutex);
-	mptr = snd_minors[minor];
+	mptr = snd_minors[minor];//获取到具体的声卡设备，即次设备比如control/pcm设备等
 	if (mptr == NULL) {
 		mptr = autoload_device(minor);
 		if (!mptr) {
@@ -167,14 +167,14 @@ static int snd_open(struct inode *inode, struct file *file)
 			return -ENODEV;
 		}
 	}
-	new_fops = fops_get(mptr->f_ops);
+	new_fops = fops_get(mptr->f_ops);//获取次设备的f_ops文件操作结构体
 	mutex_unlock(&sound_mutex);
 	if (!new_fops)
 		return -ENODEV;
-	replace_fops(file, new_fops);
+	replace_fops(file, new_fops);//用次设备的文件操作结构体替换
 
 	if (file->f_op->open)
-		err = file->f_op->open(inode, file);
+		err = file->f_op->open(inode, file);//执行次设备的文件open函数
 	return err;
 }
 
@@ -290,7 +290,7 @@ int snd_register_device(int type, struct snd_card *card, int dev,
 	if (err < 0)
 		goto error;
 
-	snd_minors[minor] = preg;
+	snd_minors[minor] = preg;//赋值给全局的次设备信息结构体
  error:
 	mutex_unlock(&sound_mutex);
 	if (err < 0)

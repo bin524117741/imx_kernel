@@ -1285,8 +1285,8 @@ static int usbhid_probe(struct usb_interface *intf, const struct usb_device_id *
 	dbg_hid("HID probe called for ifnum %d\n",
 			intf->altsetting->desc.bInterfaceNumber);
 
-	for (n = 0; n < interface->desc.bNumEndpoints; n++)
-		if (usb_endpoint_is_int_in(&interface->endpoint[n].desc))
+	for (n = 0; n < interface->desc.bNumEndpoints; n++)//
+		if (usb_endpoint_is_int_in(&interface->endpoint[n].desc))//端点是不是中断输入端点
 			has_in++;
 	if (!has_in) {
 		hid_err(intf, "couldn't find an input interrupt endpoint\n");

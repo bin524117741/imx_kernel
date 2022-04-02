@@ -1186,7 +1186,7 @@ static int usb_suspend_interface(struct usb_device *udev,
 	driver = to_usb_driver(intf->dev.driver);
 
 	/* at this time we know the driver supports suspend */
-	status = driver->suspend(intf, msg);
+	status = driver->suspend(intf, msg);/**/
 	if (status && !PMSG_IS_AUTO(msg))
 		dev_err(&intf->dev, "suspend error %d\n", status);
 

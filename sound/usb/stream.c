@@ -78,7 +78,7 @@ static void snd_usb_audio_pcm_free(struct snd_pcm *pcm)
 /*
  * initialize the substream instance.
  */
-
+//创建一个neinitialize子流实例PCM实例
 static void snd_usb_init_substream(struct snd_usb_stream *as,
 				   int stream,
 				   struct audioformat *fp)
@@ -326,7 +326,7 @@ int snd_usb_add_audio_stream(struct snd_usb_audio *chip,
 	struct snd_pcm *pcm;
 	int err;
 
-	list_for_each_entry(as, &chip->pcm_list, list) {
+	list_for_each_entry(as, &chip->pcm_list, list) {//如果具有相同端点的流已经存在，则对其进行追加
 		if (as->fmt_type != fp->fmt_type)
 			continue;
 		subs = &as->substream[stream];
@@ -361,7 +361,7 @@ int snd_usb_add_audio_stream(struct snd_usb_audio *chip,
 	err = snd_pcm_new(chip->card, "USB Audio", chip->pcm_devs,
 			  stream == SNDRV_PCM_STREAM_PLAYBACK ? 1 : 0,
 			  stream == SNDRV_PCM_STREAM_PLAYBACK ? 0 : 1,
-			  &pcm);
+			  &pcm);//创建一个新的PCM实例
 	if (err < 0) {
 		kfree(as);
 		return err;
@@ -714,7 +714,7 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 		fp->chmap = convert_chmap(fp->channels, chconfig, protocol);
 
 		dev_dbg(&dev->dev, "%u:%d: add audio endpoint %#x\n", iface_no, altno, fp->endpoint);
-		err = snd_usb_add_audio_stream(chip, stream, fp);
+		err = snd_usb_add_audio_stream(chip, stream, fp);//UAC12添加audio stream
 		if (err < 0) {
 			kfree(fp->rate_table);
 			kfree(fp->chmap);
@@ -724,7 +724,7 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 		/* try to set the interface... */
 		usb_set_interface(chip->dev, iface_no, altno);
 		snd_usb_init_pitch(chip, iface_no, alts, fp);
-		snd_usb_init_sample_rate(chip, iface_no, alts, fp, fp->rate_max);
+		snd_usb_init_sample_rate(chip, iface_no, alts, fp, fp->rate_max); //初始化采样率
 	}
 	return 0;
 }

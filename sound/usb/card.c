@@ -161,13 +161,13 @@ static int snd_usb_create_stream(struct snd_usb_audio *chip, int ctrlif, int int
 		alts = &iface->altsetting[0];
 		altsd = get_iface_desc(alts);
 	}
-
+	/*已经被绑定了*/
 	if (usb_interface_claimed(iface)) {
 		dev_dbg(&dev->dev, "%d:%d: skipping, already claimed\n",
 			ctrlif, interface);
 		return -EINVAL;
 	}
-
+	/*如果是midi接口*/
 	if ((altsd->bInterfaceClass == USB_CLASS_AUDIO ||
 	     altsd->bInterfaceClass == USB_CLASS_VENDOR_SPEC) &&
 	    altsd->bInterfaceSubClass == USB_SUBCLASS_MIDISTREAMING) {
@@ -193,14 +193,15 @@ static int snd_usb_create_stream(struct snd_usb_audio *chip, int ctrlif, int int
 		/* skip non-supported classes */
 		return -EINVAL;
 	}
-
+	/*UAC没有低速设备*/
 	if (snd_usb_get_speed(dev) == USB_SPEED_LOW) {
 		dev_err(&dev->dev, "low speed audio streaming not supported\n");
 		return -EINVAL;
 	}
-
+	//解析USB音频接口
 	if (! snd_usb_parse_audio_interface(chip, interface)) {
 		usb_set_interface(dev, interface, 0); /* reset the current interface */
+		//绑定一个驱动到接口
 		usb_driver_claim_interface(&usb_audio_driver, iface, (void *)-1L);
 		return -EINVAL;
 	}
@@ -220,11 +221,12 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 	int i, protocol;
 
 	/* find audiocontrol interface */
-	host_iface = &usb_ifnum_to_if(dev, ctrlif)->altsetting[0];
+	host_iface = &usb_ifnum_to_if(dev, ctrlif)->altsetting[0];//拿指定接口号去获取usb_interface中得altsetting[0]
+	//找到具有给定子类型的类指定的接口描述符
 	control_header = snd_usb_find_csint_desc(host_iface->extra,
 						 host_iface->extralen,
 						 NULL, UAC_HEADER);
-	altsd = get_iface_desc(host_iface);
+	altsd = get_iface_desc(host_iface);//获取接口描述符
 	protocol = altsd->bInterfaceProtocol;
 
 	if (!control_header) {
@@ -476,13 +478,13 @@ static int usb_audio_probe(struct usb_interface *intf,
 	u32 id;
 
 	alts = &intf->altsetting[0];
-	ifnum = get_iface_desc(alts)->bInterfaceNumber;
+	ifnum = get_iface_desc(alts)->bInterfaceNumber;//获取接口得个数
 	id = USB_ID(le16_to_cpu(dev->descriptor.idVendor),
 		    le16_to_cpu(dev->descriptor.idProduct));
 	if (quirk && quirk->ifnum >= 0 && ifnum != quirk->ifnum)
 		return -ENXIO;
 
-	err = snd_usb_apply_boot_quirk(dev, intf, quirk);
+	err = snd_usb_apply_boot_quirk(dev, intf, quirk);//根据不同声卡打补丁
 	if (err < 0)
 		return err;
 
@@ -514,7 +516,7 @@ static int usb_audio_probe(struct usb_interface *intf,
 			    (vid[i] == -1 || vid[i] == USB_ID_VENDOR(id)) &&
 			    (pid[i] == -1 || pid[i] == USB_ID_PRODUCT(id))) {
 				err = snd_usb_audio_create(intf, dev, i, quirk,
-							   &chip);
+							   &chip);//创建一个chip实例并设置它的名称,主要调用snd_card_new创建并
 				if (err < 0)
 					goto __error;
 				chip->pm_intf = intf;
@@ -546,16 +548,18 @@ static int usb_audio_probe(struct usb_interface *intf,
 
 	if (err > 0) {
 		/* create normal USB audio interfaces */
+		//解析音频控制描述符并创建pcm/midi流
 		err = snd_usb_create_streams(chip, ifnum);
 		if (err < 0)
 			goto __error;
+		//解析音频控制描述符并创建mixer控制节点
 		err = snd_usb_create_mixer(chip, ifnum, ignore_ctl_error);
 		if (err < 0)
 			goto __error;
 	}
 
 	/* we are allowed to call snd_card_register() many times */
-	err = snd_card_register(chip->card);
+	err = snd_card_register(chip->card);//注册一个声卡
 	if (err < 0)
 		goto __error;
 

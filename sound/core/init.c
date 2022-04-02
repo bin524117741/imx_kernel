@@ -191,11 +191,11 @@ static void release_card_device(struct device *dev)
 /**
  *  snd_card_new - create and initialize a soundcard structure
  *  @parent: the parent device object
- *  @idx: card index (address) [0 ... (SNDRV_CARDS-1)]
- *  @xid: card identification (ASCII string)
+ *  @idx: //一个整数值,该声卡的编号
+ *  @xid: //字符串,声卡的标识符
  *  @module: top level module for locking
- *  @extra_size: allocate this extra size after the main soundcard structure
- *  @card_ret: the pointer to store the created card instance
+ *  @extra_size: //该参数决定在创建snd_card实例时,需要同时额外分配的私有数据的大小,该数据的指针最终会赋值给snd_card的private_data数据成员
+ *  @card_ret: //返回所创建的snd_card实例的指针
  *
  *  Creates and initializes a soundcard structure.
  *
@@ -209,7 +209,7 @@ int snd_card_new(struct device *parent, int idx, const char *xid,
 		    struct module *module, int extra_size,
 		    struct snd_card **card_ret)
 {
-	struct snd_card *card;
+	struct snd_card *card;//创建一个声卡实例
 	int err;
 
 	if (snd_BUG_ON(!card_ret))
@@ -218,15 +218,17 @@ int snd_card_new(struct device *parent, int idx, const char *xid,
 
 	if (extra_size < 0)
 		extra_size = 0;
+	//根据extra_size参数的大小分配内存,该内存区可以作为芯片的专有数据使用
 	card = kzalloc(sizeof(*card) + extra_size, GFP_KERNEL);
 	if (!card)
 		return -ENOMEM;
 	if (extra_size > 0)
 		card->private_data = (char *)card + sizeof(struct snd_card);
 	if (xid)
-		strlcpy(card->id, xid, sizeof(card->id));
+		strlcpy(card->id, xid, sizeof(card->id));//拷贝声卡的ID字符串
 	err = 0;
 	mutex_lock(&snd_card_mutex);
+	//如果传入的声卡编号为-1,自动分配一个索引编号
 	if (idx < 0) /* first check the matching module-name slot */
 		idx = get_slot_from_bitmask(idx, module_slot_match, module);
 	if (idx < 0) /* if not matched, assign an empty slot */
@@ -236,7 +238,8 @@ int snd_card_new(struct device *parent, int idx, const char *xid,
 	else if (idx < snd_ecards_limit) {
 		if (test_bit(idx, snd_cards_lock))
 			err = -EBUSY;	/* invalid */
-	} else if (idx >= SNDRV_CARDS)
+	} 
+	else if (idx >= SNDRV_CARDS)
 		err = -ENODEV;
 	if (err < 0) {
 		mutex_unlock(&snd_card_mutex);
@@ -277,12 +280,12 @@ int snd_card_new(struct device *parent, int idx, const char *xid,
 
 	/* the control interface cannot be accessed from the user space until */
 	/* snd_cards_bitmask and snd_cards are set with snd_card_register */
-	err = snd_ctl_create(card);
+	err = snd_ctl_create(card);//建立逻辑设备:Control
 	if (err < 0) {
 		dev_err(parent, "unable to register control minors\n");
 		goto __error;
 	}
-	err = snd_info_card_create(card);
+	err = snd_info_card_create(card);//建立proc文件中的info节点:通常就是/proc/asound/card0
 	if (err < 0) {
 		dev_err(parent, "unable to create card info\n");
 		goto __error_ctl;
@@ -744,12 +747,16 @@ int snd_card_register(struct snd_card *card)
 		return -EINVAL;
 
 	if (!card->registered) {
+		//创建device
 		err = device_add(&card->card_dev);
 		if (err < 0)
 			return err;
 		card->registered = true;
 	}
-
+	/*注册所有挂在该声卡下的逻辑设备,
+	snd_device_register_all()实际上是通过
+	snd_card的devices链表,遍历所有的snd_device,并且调用snd_device的ops->dev_register()来实现各自设备的注册的
+	*/
 	if ((err = snd_device_register_all(card)) < 0)
 		return err;
 	mutex_lock(&snd_card_mutex);

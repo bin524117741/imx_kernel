@@ -427,9 +427,9 @@ struct usb_interface_descriptor {
 	/*
 	下面三个代表了一种USB设备 
 	*/
-	__u8  bInterfaceClass;
-	__u8  bInterfaceSubClass;
-	__u8  bInterfaceProtocol;
+	__u8  bInterfaceClass;//接口类型 HID设备此值为0x03
+	__u8  bInterfaceSubClass;//接口子类型 HID设备此值为0或者1
+	__u8  bInterfaceProtocol;//接口所遵循的协议
 	__u8  iInterface;//接口对应字符串描述符的索引值
 } __attribute__ ((packed));
 

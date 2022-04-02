@@ -41,7 +41,7 @@ struct usb_hub {
 	int			error;		/* last reported error */
 	int			nerrors;	/* track consecutive errors */
 
-	unsigned long		event_bits[1];	/* status change bitmask */
+	unsigned long		event_bits[1];	/*状态改变位图 */
 	unsigned long		change_bits[1];	/* ports with logical connect
 							status change */
 	unsigned long		removed_bits[1]; /* ports with a "removed"

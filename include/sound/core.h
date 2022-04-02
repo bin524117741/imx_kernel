@@ -92,31 +92,30 @@ struct snd_device {
 /* main structure for soundcard */
 
 struct snd_card {
-	int number;			/* number of soundcard (index to
-								snd_cards) */
+	int number;	//soundcard的序号，通常为0		/* number of soundcard (index to snd_cards) */
 
-	char id[16];			/* id string of this card */
+	char id[16];//card的标识符，通常是字符串形式			/* id string of this card */
 	char driver[16];		/* driver name */
 	char shortname[32];		/* short name of this soundcard */
-	char longname[80];		/* name of this soundcard */
+	char longname[80];///会在具体驱动中设置，主要反映在/proc/asound/cards中		/* name of this soundcard */
 	char mixername[80];		/* mixer name */
 	char components[128];		/* card components delimited with
 								space */
 	struct module *module;		/* top-level module */
 
-	void *private_data;		/* private data for soundcard */
+	void *private_data;		/*声卡的私有数据,可以在创建声卡时通过参数指定数据的大小*/
 	void (*private_free) (struct snd_card *card); /* callback for freeing of
 								private data */
-	struct list_head devices;	/* devices */
+	struct list_head devices;	/*记录该声卡下所有逻辑设备的链表*/
 
-	struct device ctl_dev;		/* control device */
+	struct device ctl_dev;		/* 控制设备 */
 	unsigned int last_numid;	/* last used numeric ID */
 	struct rw_semaphore controls_rwsem;	/* controls list lock */
 	rwlock_t ctl_files_rwlock;	/* ctl_files list lock */
 	int controls_count;		/* count of all controls */
 	int user_ctl_count;		/* count of all user controls */
-	struct list_head controls;	/* all controls for this card */
-	struct list_head ctl_files;	/* active control files */
+	struct list_head controls;	/* all controls for this card *///记录该声卡下所有控制单元的链表
+	struct list_head ctl_files;	/* active control files *///用于管理该card下的active的control设备
 	struct mutex user_ctl_lock;	/* protects user controls against
 					   concurrent access */
 
@@ -130,8 +129,8 @@ struct snd_card {
 	spinlock_t files_lock;		/* lock the files for this card */
 	int shutdown;			/* this card is going down */
 	struct completion *release_completion;
-	struct device *dev;		/* device assigned to this card */
-	struct device card_dev;		/* cardX object for sysfs */
+	struct device *dev;		/* //和card相关的设备 */
+	struct device card_dev;		/* //card用于在sys中显示，用于代表该card */
 	const struct attribute_group *dev_groups[4]; /* assigned sysfs attr */
 	bool registered;		/* card_dev is registered? */
 

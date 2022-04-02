@@ -1073,7 +1073,7 @@ static int __init usb_init(void)
 	retval = bus_register_notifier(&usb_bus_type, &usb_bus_nb);//注册内核通知链，用于设备和接口注册的通知
 	if (retval)
 		goto bus_notifier_failed;
-	retval = usb_major_init();//主设备号初始化
+	retval = usb_major_init();//主设备号180初始化
 	if (retval)
 		goto major_init_failed;
 	retval = usb_register(&usbfs_driver);//注册usb文件系统
