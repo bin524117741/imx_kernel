@@ -3651,3 +3651,5 @@ MODULE_AUTHOR("Liam Girdwood, lrg@slimlogic.co.uk");
 MODULE_DESCRIPTION("ALSA SoC Core");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:soc-audio");
+
+http://192.168.1.4:3333/bin.bi/gateway.git

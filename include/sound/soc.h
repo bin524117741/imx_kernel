@@ -815,7 +815,7 @@ struct snd_soc_codec {
 	unsigned int cache_init:1; /* codec cache has been initialized */
 
 	/* codec IO */
-	void *control_data; /* codec control (i2c/3wire) data */
+	void *control_data; /* 该指针指向的结构用于对codec的控制，通常和read，write字段联合使用 */
 	hw_write_t hw_write;
 	void *reg_cache;
 
@@ -823,7 +823,7 @@ struct snd_soc_codec {
 	struct snd_soc_component component;
 
 	/* dapm */
-	struct snd_soc_dapm_context dapm;
+	struct snd_soc_dapm_context dapm;/* 用于DAPM控件 */
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_reg;
@@ -856,8 +856,8 @@ struct snd_soc_codec_driver {
 
 	/* codec IO */
 	struct regmap *(*get_regmap)(struct device *);
-	unsigned int (*read)(struct snd_soc_codec *, unsigned int);
-	int (*write)(struct snd_soc_codec *, unsigned int, unsigned int);
+	unsigned int (*read)(struct snd_soc_codec *, unsigned int);/* 读取codec寄存器函数 */
+	int (*write)(struct snd_soc_codec *, unsigned int, unsigned int);/* 写入codec寄存器函数 */
 	unsigned int reg_cache_size;
 	short reg_cache_step;
 	short reg_word_size;
@@ -865,7 +865,7 @@ struct snd_soc_codec_driver {
 
 	/* codec bias level */
 	int (*set_bias_level)(struct snd_soc_codec *,
-			      enum snd_soc_bias_level level);
+			      enum snd_soc_bias_level level);/* 偏置电压配置函数 */
 	bool idle_bias_off;
 	bool suspend_bias_off;
 
